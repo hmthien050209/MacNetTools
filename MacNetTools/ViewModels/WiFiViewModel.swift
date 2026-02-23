@@ -7,8 +7,10 @@ class WiFiViewModel {
     private let coreWlanService = CoreWLANService()
     private let locationPermissionService = LocationPermissionService()
     
-    func updateWiFi() {
+    @discardableResult
+    func updateWiFi() -> WiFiModel? {
         locationPermissionService.requestPermission()
         wiFiModel = coreWlanService.getWiFiModel()
+        return wiFiModel
     }
 }

@@ -7,8 +7,10 @@ class BasicNetViewModel {
     private let coreWlanService = CoreWLANService()
     private let locationPermissionService = LocationPermissionService()
     
-    func updateBasicNet() {
+    @discardableResult
+    func updateBasicNet() -> BasicNetModel? {
         locationPermissionService.requestPermission()
         basicNetModel = coreWlanService.getBasicNetModel()
+        return basicNetModel
     }
 }

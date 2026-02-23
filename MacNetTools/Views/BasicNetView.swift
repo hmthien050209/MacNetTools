@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BasicNetView: View {
     @State private var viewModel = BasicNetViewModel()
+    var logViewModel: LogViewModel?
     
     var body: some View {
         VStack(spacing: 20) {
@@ -21,7 +22,16 @@ struct BasicNetView: View {
             Spacer()
             
             Button {
-                viewModel.updateBasicNet()
+                let previous = viewModel.basicNetModel
+                if let model = viewModel.updateBasicNet() {
+                    if let previous, previous.localIp != model.localIp {
+                        logViewModel?.append("Local IP changed to \(model.localIp)")
+                    } else {
+                        logViewModel?.append("Updated network details (\(model.localIp))")
+                    }
+                } else {
+                    logViewModel?.append("Failed to fetch network details")
+                }
             } label: {
                 Label("Update Network Info", systemImage: "arrow.clockwise")
                     .frame(maxWidth: .infinity)
@@ -31,7 +41,7 @@ struct BasicNetView: View {
             .keyboardShortcut("r", modifiers: .command) // Bonus: Cmd+R to refresh
         }
         .padding()
-        .frame(width: 400, height: 450)
+        .frame(minWidth: 320, maxWidth: .infinity, maxHeight: 450)
     }
     
     // Helper View to keep the main body clean
