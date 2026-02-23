@@ -44,21 +44,42 @@ struct WiFiView: View {
     
     private func readableSecurity(_ security: CWSecurity) -> String {
         switch security {
-        case .none: return "Open"
-        case .wep: return "WEP"
-        case .wpaPersonal: return "WPA Personal"
-        case .wpaPersonalMixed: return "WPA/WPA2 Personal"
-        case .wpa2Personal: return "WPA2 Personal"
-        case .personal: return "Personal"
-        case .dynamicWEP: return "Dynamic WEP"
-        case .wpaEnterprise: return "WPA Enterprise"
-        case .wpaEnterpriseMixed: return "WPA/WPA2 Enterprise"
-        case .wpa2Enterprise: return "WPA2 Enterprise"
-        case .wpa3Personal: return "WPA3 Personal"
-        case .wpa3Enterprise: return "WPA3 Enterprise"
-        case .wpa3Transition: return "WPA2/WPA3 Personal"
-        case .unknown: return "Unknown"
-        @unknown default: return "Unknown"
+        case .none:
+            return "Open"
+        case .WEP:
+            return "WEP"
+        case .wpaPersonal:
+            return "WPA Personal"
+        case .wpaPersonalMixed:
+            return "WPA/WPA2 Personal"
+        case .wpa2Personal:
+            return "WPA2 Personal"
+        case .personal:
+            return "Personal"
+        case .dynamicWEP:
+            return "Dynamic WEP"
+        case .wpaEnterprise:
+            return "WPA Enterprise"
+        case .wpaEnterpriseMixed:
+            return "WPA/WPA2 Enterprise"
+        case .wpa2Enterprise:
+            return "WPA2 Enterprise"
+        case .enterprise:
+            return "Enterprise"
+        case .wpa3Personal:
+            return "WPA3 Personal"
+        case .wpa3Enterprise:
+            return "WPA3 Enterprise"
+        case .wpa3Transition:
+            return "WPA2/WPA3 Personal"
+        case .OWE:
+            return "OWE (Enhanced Open)"
+        case .oweTransition:
+            return "OWE Transition"
+        case .unknown:
+            return "Unknown"
+        @unknown default:
+            return "Unknown"
         }
     }
     
@@ -77,13 +98,11 @@ struct WiFiView: View {
     
     private func bandwidth(for width: CWChannelWidth) -> String {
         switch width {
-        case .unknown: return "Unknown"
         case .width20MHz: return "20 MHz"
         case .width40MHz: return "40 MHz"
         case .width80MHz: return "80 MHz"
         case .width160MHz: return "160 MHz"
-        case .width80MHzPlus80MHz: return "160 MHz (80+80)"
-        case .width320MHz: return "320 MHz"
+        case .widthUnknown: return "Unknown"
         @unknown default: return "Unknown"
         }
     }

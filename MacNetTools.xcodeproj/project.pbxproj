@@ -20,22 +20,11 @@
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
-/* Begin PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-		2320521B2F4C185200236374 /* Exceptions for "MacNetTools" folder in "Copy Bundle Resources" phase from "MacNetTools" target */ = {
-			isa = PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet;
-			buildPhase = 23BCCFFC2F4C09180053B358 /* Resources */;
-			membershipExceptions = (
-				MacNetTools.entitlements,
-			);
-		};
-/* End PBXFileSystemSynchronizedGroupBuildPhaseMembershipExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		23BCD0002F4C09180053B358 /* MacNetTools */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				23CEB0672F4C34A900D0F3A8 /* Exceptions for "MacNetTools" folder in "MacNetTools" target */,
-				2320521B2F4C185200236374 /* Exceptions for "MacNetTools" folder in "Copy Bundle Resources" phase from "MacNetTools" target */,
 			);
 			path = MacNetTools;
 			sourceTree = "<group>";

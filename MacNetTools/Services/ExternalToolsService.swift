@@ -3,13 +3,13 @@ import Foundation
 class ExternalToolsService {
     func isToolAvailable(_ name: String) async -> Bool {
         await Task.detached(priority: .background) {
-            self.checkToolAvailable(name)
+            await self.checkToolAvailable(name)
         }.value
     }
     
     func runCommand(_ executable: String, arguments: [String]) async -> [String] {
         await Task.detached(priority: .background) {
-            self.executeCommand(executable, arguments: arguments)
+            await self.executeCommand(executable, arguments: arguments)
         }.value
     }
     

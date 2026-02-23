@@ -16,7 +16,7 @@ class PingViewModel {
     
     func runPing(target: String) async -> (status: String, logLines: [String]) {
         await Task.detached(priority: .background) {
-            self.executePing(target: target)
+            await self.executePing(target: target)
         }.value
     }
     

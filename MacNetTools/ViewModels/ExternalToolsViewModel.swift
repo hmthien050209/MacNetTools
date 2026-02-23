@@ -56,7 +56,7 @@ class ExternalToolsViewModel {
                     self.speedtestAvailable = resolved != nil
                 }
                 if let cmd = resolved {
-                    for await line in self.service.runCommandStreaming(cmd, arguments: []) {
+                    for await line in await self.service.runCommandStreaming(cmd, arguments: []) {
                         continuation.yield(line)
                     }
                 } else {
