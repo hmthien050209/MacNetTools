@@ -3,7 +3,6 @@ import SwiftUI
 struct LogView: View {
     var logViewModel: LogViewModel
     @State private var searchText = ""
-    @State private var isCopied = false
     @State private var isSaved = false
 
     var body: some View {
@@ -35,21 +34,11 @@ struct LogView: View {
                     Spacer()
                     Text("(Will exclude filters)")
                         .font(.caption)
-                    Button {
-                        copyToClipboard(logText)
-                        flashFeedback($isCopied)
-                    } label: {
-                        Label(
-                            isCopied ? "Copied!" : "Copy All",
-                            systemImage: isCopied
-                                ? "checkmark.circle.fill" : "doc.on.doc"
-                        )
-                        .contentTransition(.symbolEffect(.replace))
-                    }
-                    .foregroundStyle(isCopied ? .secondary : .primary)
-                    .disabled(filtered.isEmpty || isCopied)
-                    .help("Copy full log to clipboard")
-                    .controlSize(.small)
+                    CopyButton(
+                        text: logText,
+                        isDisabled: filtered.isEmpty,
+                        helpText: "Copy full log to clipboard"
+                    )
                     Button {
                         saveLogToDesktop(
                             content: logText,
@@ -70,35 +59,7 @@ struct LogView: View {
                 }
             }
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(filtered) { entry in
-                            Text(entry.message)
-                                .font(
-                                    .custom(kMonoFontName, size: kMonoFontSize)
-                                )
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .textSelection(.enabled)
-                                .id(entry.id)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .onChange(of: filtered.count) { _, _ in
-                        if let last = filtered.last {
-                            withAnimation {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
-            }
-            .background(.gray.opacity(0.05))
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.gray.opacity(0.2))
-            )
+            MonoScrollView(lines: filtered.map(\.message), scrollTrigger: filtered.count)
         }
         .frame(
             minWidth: 400,
