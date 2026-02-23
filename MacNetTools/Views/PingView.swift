@@ -29,7 +29,7 @@ struct PingView : View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(viewModel.pings, id: \.target) { ping in
+                        ForEach(viewModel.pings) { ping in
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(ping.target)
                                     .fontWeight(.bold)
@@ -54,12 +54,16 @@ struct PingView : View {
         let trimmed = target.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         
-        let result = viewModel.runPing(target: trimmed)
-        viewModel.addPing(target: trimmed, status: result.status)
-        
-        logViewModel?.append("Ping \(trimmed): \(result.status)")
-        result.logLines.forEach { line in
-            logViewModel?.append(line)
+        Task {
+            let result = await viewModel.runPing(target: trimmed)
+            
+            await MainActor.run {
+                viewModel.addPing(target: trimmed, status: result.status)
+                logViewModel?.append("Ping \(trimmed): \(result.status)")
+                result.logLines.forEach { line in
+                    logViewModel?.append(line)
+                }
+            }
         }
     }
 }

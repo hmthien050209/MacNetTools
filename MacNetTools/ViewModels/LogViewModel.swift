@@ -2,17 +2,17 @@ import Foundation
 
 @Observable
 class LogViewModel {
-    private static let formatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss"
+    private static let formatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withTime, .withColonSeparatorInTime]
         return formatter
     }()
     
-    var entries: [String] = []
+    var entries: [LogEntry] = []
     
     func append(_ message: String) {
         let timestamp = Self.formatter.string(from: Date())
-        entries.append("[\(timestamp)] \(message)")
+        entries.append(LogEntry(message: "[\(timestamp)] \(message)"))
     }
     
     func clear() {

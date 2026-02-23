@@ -65,8 +65,8 @@ struct ExternalToolsView : View {
         guard !target.isEmpty else { return }
         
         logViewModel?.append("Running traceroute to \(target)...")
-        Task.detached { [viewModel] in
-            let lines = viewModel.runTraceroute(target: target)
+        Task {
+            let lines = await viewModel.runTraceroute(target: target)
             await MainActor.run {
                 lines.forEach { line in
                     logViewModel?.append(line)
@@ -77,8 +77,8 @@ struct ExternalToolsView : View {
     
     private func runSpeedtest() {
         logViewModel?.append("Running speedtest...")
-        Task.detached { [viewModel] in
-            let lines = viewModel.runSpeedtest()
+        Task {
+            let lines = await viewModel.runSpeedtest()
             await MainActor.run {
                 lines.forEach { line in
                     logViewModel?.append(line)

@@ -1,9 +1,23 @@
 import Foundation
 
 class ExternalToolsService {
-    func isToolAvailable(_ name: String) -> Bool {
+    func isToolAvailable(_ name: String) async -> Bool {
+        await Task.detached(priority: .background) {
+            self.checkToolAvailable(name)
+        }.value
+    }
+    
+    func runCommand(_ executable: String, arguments: [String]) async -> [String] {
+        await Task.detached(priority: .background) {
+            self.executeCommand(executable, arguments: arguments)
+        }.value
+    }
+    
+    // MARK: - Helpers
+    
+    private func checkToolAvailable(_ name: String) -> Bool {
         let task = Process()
-        task.launchPath = "/usr/bin/env"
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         task.arguments = ["which", name]
         
         let pipe = Pipe()
@@ -15,14 +29,15 @@ class ExternalToolsService {
             return false
         }
         
+        task.waitUntilExit()
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         guard let output = String(data: data, encoding: .utf8) else { return false }
         return !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
-    func runCommand(_ executable: String, arguments: [String]) -> [String] {
+    private func executeCommand(_ executable: String, arguments: [String]) -> [String] {
         let task = Process()
-        task.launchPath = "/usr/bin/env"
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         task.arguments = [executable] + arguments
         
         let pipe = Pipe()
@@ -35,15 +50,15 @@ class ExternalToolsService {
             return ["\(executable) failed to launch: \(error.localizedDescription)"]
         }
         
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         
         guard let output = String(data: data, encoding: .utf8) else {
             return ["No output from \(executable)"]
         }
         
         let lines = output
-            .split(separator: "\n", omittingEmptySubsequences: false)
+            .split(separator: "\n", omittingEmptySubsequences: true)
             .map { String($0) }
         
         return lines.isEmpty ? ["No output from \(executable)"] : lines

@@ -10,7 +10,7 @@ struct WiFiView: View {
                 InfoRow(label: "SSID", value: model.ssid)
                 InfoRow(label: "BSSID", value: model.connectedBssid)
                 InfoRow(label: "Interface", value: model.interfaceName ?? kUnknown)
-                InfoRow(label: "Channel", value: "\(model.channel?.channelNumber ?? 0)")
+                InfoRow(label: "Channel", value: model.channel.map { "\($0.channelNumber)" } ?? kUnknown)
                 InfoRow(label: "Security", value: String(describing: model.security))
                 InfoRow(label: "RSSI / Noise", value: "\(model.rssi) / \(model.noise) dBm")
                 InfoRow(label: "SNR", value: "\(model.signalNoiseRatio) dB")
@@ -20,15 +20,23 @@ struct WiFiView: View {
             }
             
             Button("Update") {
-                let previous = viewModel.wiFiModel
-                if let model = viewModel.updateWiFi() {
-                    if let previous, previous.ssid != model.ssid {
-                        logViewModel?.append("SSID changed to \(model.ssid)")
+                let previousModel = viewModel.wiFiModel
+                let updatedModel = viewModel.updateWiFi()
+                
+                if let model = updatedModel {
+                    let ssidChanged = previousModel.map { $0.ssid != model.ssid } ?? false
+                    let bssidChanged = previousModel.map { $0.connectedBssid != model.connectedBssid } ?? false
+                    
+                    if ssidChanged || bssidChanged {
+                        if ssidChanged {
+                            logViewModel?.append("SSID changed to \(model.ssid)")
+                        }
+                        if bssidChanged {
+                            logViewModel?.append("BSSID changed to \(model.connectedBssid)")
+                        }
+                    } else {
+                        logViewModel?.append("WiFi details refreshed")
                     }
-                    if let previous, previous.connectedBssid != model.connectedBssid {
-                        logViewModel?.append("BSSID changed to \(model.connectedBssid)")
-                    }
-                    logViewModel?.append("WiFi details refreshed")
                 } else {
                     logViewModel?.append("Failed to fetch WiFi information")
                 }

@@ -2,28 +2,50 @@ import Foundation
 
 @Observable
 class ExternalToolsViewModel {
+    private var availabilityTask: Task<Void, Never>?
+    private var preferredSpeedtestCommand: String?
     private let service = ExternalToolsService()
     
     var tracerouteAvailable: Bool = false
     var speedtestAvailable: Bool = false
     
     init() {
-        tracerouteAvailable = service.isToolAvailable("traceroute")
-        // Some macOS installs use "speedtest" (Ookla) while others rely on "networkQuality"
-        speedtestAvailable = service.isToolAvailable("speedtest") || service.isToolAvailable("networkQuality")
+        availabilityTask = Task { @MainActor in
+            tracerouteAvailable = await service.isToolAvailable("traceroute")
+            preferredSpeedtestCommand = await resolveSpeedtestCommand()
+            speedtestAvailable = preferredSpeedtestCommand != nil
+        }
     }
     
-    func runTraceroute(target: String) -> [String] {
-        service.runCommand("traceroute", arguments: [target])
+    deinit {
+        availabilityTask?.cancel()
     }
     
-    func runSpeedtest() -> [String] {
-        if service.isToolAvailable("speedtest") {
-            return service.runCommand("speedtest", arguments: [])
+    func runTraceroute(target: String) async -> [String] {
+        await service.runCommand("traceroute", arguments: [target])
+    }
+    
+    func runSpeedtest() async -> [String] {
+        if preferredSpeedtestCommand == nil {
+            preferredSpeedtestCommand = await resolveSpeedtestCommand()
+            await MainActor.run {
+                speedtestAvailable = preferredSpeedtestCommand != nil
+            }
         }
-        if service.isToolAvailable("networkQuality") {
-            return service.runCommand("networkQuality", arguments: [])
+        
+        guard let command = preferredSpeedtestCommand else {
+            return ["No speedtest tool available on this system."]
         }
-        return ["No speedtest tool available on this system."]
+        
+        return await service.runCommand(command, arguments: [])
+    }
+    
+    // MARK: - Helpers
+    private func resolveSpeedtestCommand() async -> String? {
+        let speedtestTool = await service.isToolAvailable("speedtest")
+        if speedtestTool { return "speedtest" }
+        
+        let networkQuality = await service.isToolAvailable("networkQuality")
+        return networkQuality ? "networkQuality" : nil
     }
 }

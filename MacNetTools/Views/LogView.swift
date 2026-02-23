@@ -1,8 +1,7 @@
 import SwiftUI
 
 struct LogView : View {
-    @State private var viewModel = LogViewModel()
-    var logViewModel: LogViewModel?
+    var logViewModel: LogViewModel
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -11,19 +10,15 @@ struct LogView : View {
                     .font(.headline)
                 Spacer()
                 Button("Clear") {
-                    if let logViewModel {
-                        logViewModel.clear()
-                    } else {
-                        viewModel.clear()
-                    }
+                    logViewModel.clear()
                 }
                 .controlSize(.small)
             }
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 6) {
-                    ForEach(Array(logEntries.enumerated()), id: \.offset) { _, entry in
-                        Text(entry)
+                    ForEach(logViewModel.entries) { entry in
+                        Text(entry.message)
                             .font(.custom(kMonoFontName, size: 11))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
@@ -37,16 +32,8 @@ struct LogView : View {
         .padding()
         .frame(minWidth: 400, maxWidth: .infinity, maxHeight: 400, alignment: .topLeading)
     }
-    
-    private var logEntries: [String] {
-        // Prefer the shared model if provided
-        if let logViewModel {
-            return logViewModel.entries
-        }
-        return viewModel.entries
-    }
 }
 
 #Preview {
-    LogView()
+    LogView(logViewModel: LogViewModel())
 }

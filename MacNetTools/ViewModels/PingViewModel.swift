@@ -7,17 +7,25 @@ class PingViewModel {
     func addPing(target: String, status: String) {
         // Replace the existing entry for the same target if present
         if let index = pings.firstIndex(where: { $0.target == target }) {
-            pings[index] = PingModel(target: target, status: status)
+            let existingId = pings[index].id
+            pings[index] = PingModel(id: existingId, target: target, status: status)
         } else {
             pings.append(PingModel(target: target, status: status))
         }
     }
     
-    func runPing(target: String) -> (status: String, logLines: [String]) {
+    func runPing(target: String) async -> (status: String, logLines: [String]) {
+        await Task.detached(priority: .background) {
+            self.executePing(target: target)
+        }.value
+    }
+    
+    // MARK: - Helpers
+    private func executePing(target: String) -> (status: String, logLines: [String]) {
         let pingPath = FileManager.default.isExecutableFile(atPath: "/sbin/ping") ? "/sbin/ping" : "/bin/ping"
         
         let task = Process()
-        task.launchPath = pingPath
+        task.executableURL = URL(fileURLWithPath: pingPath)
         task.arguments = ["-c", "3", target]
         
         let pipe = Pipe()
@@ -30,12 +38,12 @@ class PingViewModel {
             return ("Failed", ["Ping failed to launch: \(error.localizedDescription)"])
         }
         
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         task.waitUntilExit()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
         
         let output = String(data: data, encoding: .utf8) ?? ""
         let logLines = output
-            .split(separator: "\n", omittingEmptySubsequences: false)
+            .split(separator: "\n", omittingEmptySubsequences: true)
             .map { String($0) }
         
         let status = task.terminationStatus == 0 ? "Reachable" : "Failed (\(task.terminationStatus))"

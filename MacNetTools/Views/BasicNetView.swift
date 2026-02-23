@@ -22,9 +22,11 @@ struct BasicNetView: View {
             Spacer()
             
             Button {
-                let previous = viewModel.basicNetModel
-                if let model = viewModel.updateBasicNet() {
-                    if let previous, previous.localIp != model.localIp {
+                let previousModel = viewModel.basicNetModel
+                let updatedModel = viewModel.updateBasicNet()
+                
+                if let model = updatedModel {
+                    if let previousModel, previousModel.localIp != model.localIp {
                         logViewModel?.append("Local IP changed to \(model.localIp)")
                     } else {
                         logViewModel?.append("Updated network details (\(model.localIp))")
