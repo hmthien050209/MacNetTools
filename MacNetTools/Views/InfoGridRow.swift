@@ -6,12 +6,16 @@ struct InfoGridRow: View {
     let value: String
 
     var body: some View {
-        GridRow {
+        GridRow(alignment: .top) {
             Text(label)
                 .fontWeight(.semibold)
             Text(value)
-                .font(.custom(kMonoFontName, size: 12))
+                .font(.custom(kMonoFontName, size: kSpacing))
                 .frame(maxWidth: .infinity, alignment: .leading)
+                // Allow the text to grow vertically but not horizontally
+                .fixedSize(horizontal: false, vertical: true)
+                // Ensure multi-line alignment is consistent
+                .multilineTextAlignment(.leading)
                 .textSelection(.enabled)
         }
     }

@@ -98,7 +98,7 @@ struct MainView: View {
 
             Spacer()
 
-            HStack(spacing: 12) {
+            HStack(spacing: kSpacing) {
                 Text("Poll Interval:")
                     .font(.subheadline)
 
@@ -193,7 +193,7 @@ struct MainView: View {
     @MainActor
     private func refreshWiFi() async {
         let previous = wiFiViewModel.wiFiModel
-        let updated = wiFiViewModel.updateWiFi()
+        let updated = await wiFiViewModel.updateWiFi()
 
         guard let updated else {
             if previous != nil {

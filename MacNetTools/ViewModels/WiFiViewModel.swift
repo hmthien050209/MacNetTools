@@ -8,9 +8,9 @@ class WiFiViewModel {
     private let locationPermissionService = LocationPermissionService()
 
     @discardableResult
-    func updateWiFi() -> WiFiModel? {
+    func updateWiFi() async -> WiFiModel? {
         locationPermissionService.requestPermission()
-        wiFiModel = coreWlanService.getWiFiModel()
+        wiFiModel = await coreWlanService.getWiFiModel()
         return wiFiModel
     }
 }

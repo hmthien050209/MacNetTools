@@ -6,16 +6,16 @@ struct BSSIDsWithSameSSIDView: View {
     var viewModel: WiFiViewModel
     @State private var isSaved = false
 
-    private var bssids: [String] {
-        viewModel.wiFiModel?.availableBssids ?? []
+    private var bssidsWithVendors: [String] {
+        viewModel.wiFiModel?.availableBssidsWithVendors ?? []
     }
 
     private var joinedText: String {
-        bssids.joined(separator: "\n")
+        bssidsWithVendors.joined(separator: "\n")
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: kSpacing) {
             // Header
             HStack {
                 if let ssid = viewModel.wiFiModel?.ssid {
@@ -30,7 +30,7 @@ struct BSSIDsWithSameSSIDView: View {
 
                 Spacer()
 
-                if !bssids.isEmpty {
+                if !bssidsWithVendors.isEmpty {
                     CopyButton(
                         text: joinedText,
                         helpText: "Copy all BSSIDs to clipboard"
@@ -38,7 +38,8 @@ struct BSSIDsWithSameSSIDView: View {
                     Button {
                         saveLogToDesktop(
                             content: joinedText,
-                            prefix: "BSSIDs_\(viewModel.wiFiModel?.ssid ?? "unknown")"
+                            prefix:
+                                "BSSIDs_\(viewModel.wiFiModel?.ssid ?? "unknown")"
                         )
                         flashFeedback($isSaved)
                     } label: {
@@ -55,13 +56,13 @@ struct BSSIDsWithSameSSIDView: View {
             }
 
             // Scrollable content
-            if bssids.isEmpty {
+            if bssidsWithVendors.isEmpty {
                 Text("No other BSSIDs detected for this SSID")
                     .foregroundStyle(.secondary)
                     .font(.headline)
                     .padding(.top, 6)
             } else {
-                MonoScrollView(lines: bssids)
+                MonoScrollView(lines: bssidsWithVendors)
                     .frame(minHeight: 100, maxHeight: 250)
             }
         }

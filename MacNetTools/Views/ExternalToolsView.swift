@@ -6,7 +6,7 @@ struct ExternalToolsView: View {
     @State private var activeSession: ToolSession?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: kSpacing) {
             HStack {
                 Text("External Tools")
                     .font(.headline)

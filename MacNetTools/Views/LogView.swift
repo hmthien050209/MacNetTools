@@ -8,8 +8,8 @@ struct LogView: View {
     var body: some View {
         let filtered = logViewModel.filteredEntries(searchText: searchText)
 
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: kSpacing) {
+            VStack(alignment: .leading, spacing: kSpacing) {
                 HStack {
                     Text("Activity Log")
                         .font(.headline)
@@ -59,7 +59,10 @@ struct LogView: View {
                 }
             }
 
-            MonoScrollView(lines: filtered.map(\.message), scrollTrigger: filtered.count)
+            MonoScrollView(
+                lines: filtered.map(\.message),
+                scrollTrigger: filtered.count
+            )
         }
         .frame(
             minWidth: 400,

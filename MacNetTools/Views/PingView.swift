@@ -14,7 +14,7 @@ struct PingView: View {
             } else {
                 Grid(
                     alignment: .leading,
-                    horizontalSpacing: 12,
+                    horizontalSpacing: kSpacing,
                     verticalSpacing: 6
                 ) {
                     GridRow {
@@ -26,9 +26,13 @@ struct PingView: View {
                     ForEach(viewModel.pings) { ping in
                         GridRow {
                             Text(ping.target)
-                                .font(.custom(kMonoFontName, size: 12))
+                                .font(
+                                    .custom(kMonoFontName, size: kMonoFontSize)
+                                )
                             Text(ping.status)
-                                .font(.custom(kMonoFontName, size: 12))
+                                .font(
+                                    .custom(kMonoFontName, size: kMonoFontSize)
+                                )
                                 .foregroundStyle(.secondary)
                         }
                     }

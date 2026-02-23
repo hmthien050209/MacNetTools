@@ -2,8 +2,23 @@ import CoreWLAN
 import Foundation
 import SystemConfiguration
 
+/// The vendor cache based on the BSSIDs, to prevent rate limiting exceeding
+actor VendorCache {
+    private var cache: [String: String] = [:]
+
+    func get(_ bssid: String) -> String? {
+        return cache[bssid]
+    }
+
+    func set(_ name: String, for bssid: String) {
+        cache[bssid] = name
+    }
+}
+
 class CoreWLANService {
-    func getWiFiModel(interfaceName: String? = nil) -> WiFiModel? {
+    private let vendorCache = VendorCache()
+
+    func getWiFiModel(interfaceName: String? = nil) async -> WiFiModel? {
         let client = CWWiFiClient.shared()
 
         guard
@@ -44,6 +59,7 @@ class CoreWLANService {
         return WiFiModel(
             ssid: interface.ssid() ?? kUnknown,
             connectedBssid: interface.bssid() ?? kUnknown,
+            vendor: await fetchVendorName(bssid: interface.bssid()),
             channel: interface.wlanChannel(),
             phyMode: interface.activePHYMode(),
             security: interface.security(),
@@ -51,7 +67,9 @@ class CoreWLANService {
             noise: noise,
             signalNoiseRatio: signalNoiseRatio,
             countryCode: interface.countryCode() ?? kUnknown,
-            availableBssids: getBSSIDsForSSID(interface.ssid() ?? ""),
+            availableBssidsWithVendors: await getBSSIDsWithVendorsForSameSSID(
+                interface.ssid() ?? ""
+            ),
             txRateMbps: interface.transmitRate(),
             interfaceName: interface.interfaceName,
             encryptionInfo: encryptionInfo ?? kUnknown,
@@ -87,13 +105,25 @@ class CoreWLANService {
     // MARK: - Helpers
 
     // Finds all BSSIDs for the same SSID as the connected network
-    private func getBSSIDsForSSID(_ ssid: String) -> [String] {
+    private func getBSSIDsWithVendorsForSameSSID(_ ssid: String) async
+        -> [String]
+    {
         guard let iface = CWWiFiClient.shared().interface() else { return [] }
+
         do {
             let networks = try iface.scanForNetworks(
                 withSSID: ssid.data(using: .utf8)
             )
-            return networks.compactMap { $0.bssid }
+            var results: [String] = []
+
+            for network in networks {
+                if let bssid = network.bssid {
+                    let vendor = await fetchVendorName(bssid: bssid)
+                    results.append("\(bssid) (\(vendor))")
+                }
+            }
+
+            return results
         } catch {
             print("Scan failed: \(error.localizedDescription)")
             return []
@@ -312,5 +342,41 @@ class CoreWLANService {
             return (group, pairwise)
         }
         return nil
+    }
+
+    // MARK: - Vendor specific info
+
+    /// Dynamically fetches the vendor name from a BSSID using a public API
+    func fetchVendorName(bssid: String?) async -> String {
+        guard let safeBssid = bssid else {
+            return "Unknown"
+        }
+
+        if let cached = await vendorCache.get(safeBssid) {
+            return cached
+        }
+
+        guard let url = URL(string: "https://api.macvendors.com/\(safeBssid)")
+        else {
+            return "Invalid BSSID"
+        }
+
+        do {
+            let (data, response) = try await URLSession.shared.data(from: url)
+
+            if let httpResponse = response as? HTTPURLResponse,
+                httpResponse.statusCode == 200
+            {
+                let name =
+                    String(data: data, encoding: .utf8) ?? "Unknown Vendor"
+                await vendorCache.set(name, for: safeBssid)
+                return name
+            } else {
+                return "Generic / Unknown"
+            }
+        } catch {
+            print("Vendor fetch error: \(error)")
+            return "Lookup Failed"
+        }
     }
 }

@@ -17,6 +17,7 @@ struct WiFiView: View {
                 ) {
                     InfoGridRow(label: "SSID", value: model.ssid)
                     InfoGridRow(label: "BSSID", value: model.connectedBssid)
+                    InfoGridRow(label: "Vendor", value: model.vendor)
                     InfoGridRow(
                         label: "Interface",
                         value: model.interfaceName ?? kUnknown
