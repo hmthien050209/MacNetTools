@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreWLAN
 
 struct MainView : View {
     @State private var logViewModel = LogViewModel()

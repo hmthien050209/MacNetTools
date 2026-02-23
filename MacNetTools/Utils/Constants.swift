@@ -1,2 +1,2 @@
 let kUnknown = "Unknown"
-let kMonoFontName = "JetBrainsMono Regular"
+let kMonoFontName = "JetBrains Mono Regular"

@@ -1,3 +1,5 @@
+import Foundation
+
 struct PingModel: Identifiable {
     let id: UUID
     /// The ping target

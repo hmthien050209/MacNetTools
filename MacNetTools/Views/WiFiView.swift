@@ -1,4 +1,5 @@
 import SwiftUI
+import CoreWLAN
 
 struct WiFiView: View {
     var viewModel: WiFiViewModel
