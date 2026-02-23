@@ -2,22 +2,16 @@ import CoreWLAN
 import Foundation
 import SwiftUI
 
-private struct BSSIDEntry: Identifiable, Hashable {
-    let id = UUID()
-    let bssid: String
-}
-
 struct BSSIDsWithSameSSIDView: View {
     var viewModel: WiFiViewModel
+    @State private var isSaved = false
 
-    @State private var isCopied = false
-
-    private var entries: [BSSIDEntry] {
-        viewModel.wiFiModel?.availableBssids.map { BSSIDEntry(bssid: $0) } ?? []
+    private var bssids: [String] {
+        viewModel.wiFiModel?.availableBssids ?? []
     }
 
     private var joinedText: String {
-        entries.map(\.bssid).joined(separator: "\n")
+        bssids.joined(separator: "\n")
     }
 
     var body: some View {
@@ -36,68 +30,39 @@ struct BSSIDsWithSameSSIDView: View {
 
                 Spacer()
 
-                if !entries.isEmpty {
+                if !bssids.isEmpty {
+                    CopyButton(
+                        text: joinedText,
+                        helpText: "Copy all BSSIDs to clipboard"
+                    )
                     Button {
-                        copyToClipboard(joinedText)
-                        flashFeedback($isCopied)
+                        saveLogToDesktop(
+                            content: joinedText,
+                            prefix: "BSSIDs_\(viewModel.wiFiModel?.ssid ?? "unknown")"
+                        )
+                        flashFeedback($isSaved)
                     } label: {
                         Label(
-                            isCopied ? "Copied!" : "Copy All",
-                            systemImage: isCopied
+                            isSaved ? "Saved!" : "Save to Desktop",
+                            systemImage: isSaved
                                 ? "checkmark.circle.fill"
-                                : "doc.on.doc"
+                                : "square.and.arrow.down"
                         )
-                        .contentTransition(.symbolEffect(.replace))
                     }
-                    .foregroundStyle(isCopied ? .secondary : .primary)
-                    .disabled(isCopied)
+                    .help("Save all BSSIDs as a .log file on your Desktop")
                     .controlSize(.small)
-                    .help("Copy all BSSIDs to clipboard")
                 }
             }
 
             // Scrollable content
-            if entries.isEmpty {
+            if bssids.isEmpty {
                 Text("No other BSSIDs detected for this SSID")
                     .foregroundStyle(.secondary)
                     .font(.headline)
                     .padding(.top, 6)
             } else {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(entries) { entry in
-                                Text(entry.bssid)
-                                    .font(
-                                        .custom(
-                                            kMonoFontName,
-                                            size: kMonoFontSize
-                                        )
-                                    )
-                                    .frame(
-                                        maxWidth: .infinity,
-                                        alignment: .leading
-                                    )
-                                    .textSelection(.enabled)
-                                    .id(entry.id)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(8)
-                        .onAppear {
-                            if let last = entries.last {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
-                        }
-                    }
-                }
-                .frame(minHeight: 100, maxHeight: 250)
-                .background(.gray.opacity(0.05))
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.gray.opacity(0.2))
-                )
+                MonoScrollView(lines: bssids)
+                    .frame(minHeight: 100, maxHeight: 250)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
