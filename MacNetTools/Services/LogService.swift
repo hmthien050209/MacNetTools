@@ -1,0 +1,3 @@
+class LogService {
+    
+}
