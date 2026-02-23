@@ -9,3 +9,5 @@ Build with XCode, prepare Apple Developer stuffs on your own.
 ## License
 This project is licensed under the MIT license.
 Copyright (c) 2026 Hoàng Minh Thiên. All Rights Reserved.
+
+This project embeds the JetBrains Mono font, licensed under the SIL Open Font License 1.1.
