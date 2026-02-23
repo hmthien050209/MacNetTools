@@ -91,7 +91,7 @@ struct MainView: View {
                         Text("Refreshing...")
                     }
                 }
-                .font(.custom(kMonoFontName, size: 10))
+                .font(.custom(kMonoFontName, size: kMonoFontSize))
                 .foregroundStyle(.secondary)
             }
 
