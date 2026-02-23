@@ -52,9 +52,8 @@ struct ExternalToolsView : View {
         
         logViewModel?.append("Running traceroute to \(target)...")
         Task {
-            let lines = await viewModel.runTraceroute(target: target)
-            await MainActor.run {
-                lines.forEach { line in
+            for await line in viewModel.runTracerouteStream(target: target) {
+                await MainActor.run {
                     logViewModel?.append(line)
                 }
             }
@@ -64,9 +63,8 @@ struct ExternalToolsView : View {
     private func runSpeedtest() {
         logViewModel?.append("Running speedtest...")
         Task {
-            let lines = await viewModel.runSpeedtest()
-            await MainActor.run {
-                lines.forEach { line in
+            for await line in viewModel.runSpeedtestStream() {
+                await MainActor.run {
                     logViewModel?.append(line)
                 }
             }

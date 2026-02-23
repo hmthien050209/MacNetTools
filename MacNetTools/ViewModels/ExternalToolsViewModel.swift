@@ -25,6 +25,10 @@ class ExternalToolsViewModel {
         await service.runCommand("traceroute", arguments: [target])
     }
     
+    func runTracerouteStream(target: String) -> AsyncStream<String> {
+        service.runCommandStreaming("traceroute", arguments: [target])
+    }
+    
     func runSpeedtest() async -> [String] {
         if preferredSpeedtestCommand == nil {
             preferredSpeedtestCommand = await resolveSpeedtestCommand()
@@ -38,6 +42,29 @@ class ExternalToolsViewModel {
         }
         
         return await service.runCommand(command, arguments: [])
+    }
+    
+    func runSpeedtestStream() -> AsyncStream<String> {
+        if let command = preferredSpeedtestCommand {
+            return service.runCommandStreaming(command, arguments: [])
+        }
+        return AsyncStream { continuation in
+            Task.detached {
+                let resolved = await self.resolveSpeedtestCommand()
+                await MainActor.run {
+                    self.preferredSpeedtestCommand = resolved
+                    self.speedtestAvailable = resolved != nil
+                }
+                if let cmd = resolved {
+                    for await line in self.service.runCommandStreaming(cmd, arguments: []) {
+                        continuation.yield(line)
+                    }
+                } else {
+                    continuation.yield("No speedtest tool available on this system.")
+                }
+                continuation.finish()
+            }
+        }
     }
     
     // MARK: - Helpers

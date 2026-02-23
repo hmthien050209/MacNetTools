@@ -20,6 +20,43 @@ class PingViewModel {
         }.value
     }
     
+    func runPingStream(target: String) -> AsyncStream<String> {
+        AsyncStream { continuation in
+            Task.detached(priority: .background) {
+                let pingPath = FileManager.default.isExecutableFile(atPath: "/sbin/ping") ? "/sbin/ping" : "/bin/ping"
+                
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: pingPath)
+                task.arguments = ["-c", "3", target]
+                
+                let pipe = Pipe()
+                task.standardOutput = pipe
+                task.standardError = pipe
+                
+                pipe.fileHandleForReading.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+                    if let chunk = String(data: data, encoding: .utf8) {
+                        chunk
+                            .split(separator: "\n", omittingEmptySubsequences: false)
+                            .forEach { continuation.yield(String($0)) }
+                    }
+                }
+                
+                task.terminationHandler = { _ in
+                    continuation.finish()
+                }
+                
+                do {
+                    try task.run()
+                } catch {
+                    continuation.yield("Ping failed to launch: \(error.localizedDescription)")
+                    continuation.finish()
+                }
+            }
+        }
+    }
+    
     // MARK: - Helpers
     private func executePing(target: String) -> (status: String, logLines: [String]) {
         let pingPath = FileManager.default.isExecutableFile(atPath: "/sbin/ping") ? "/sbin/ping" : "/bin/ping"

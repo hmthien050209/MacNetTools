@@ -14,8 +14,8 @@ struct WiFiView: View {
                     infoRow("SSID", model.ssid)
                     infoRow("BSSID", model.connectedBssid)
                     infoRow("Interface", model.interfaceName ?? kUnknown)
-                    infoRow("Channel", model.channel.map { "\($0.channelNumber)" } ?? kUnknown)
-                    infoRow("Security", String(describing: model.security))
+                    infoRow("Channel", channelDescription(model.channel))
+                    infoRow("Security", readableSecurity(model.security))
                     infoRow("RSSI", "\(model.rssi) dBm")
                     infoRow("Noise", "\(model.noise) dBm")
                     infoRow("SNR", "\(model.signalNoiseRatio) dB")
@@ -39,6 +39,52 @@ struct WiFiView: View {
                 .font(.custom(kMonoFontName, size: 12))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
+        }
+    }
+    
+    private func readableSecurity(_ security: CWSecurity) -> String {
+        switch security {
+        case .none: return "Open"
+        case .wep: return "WEP"
+        case .wpaPersonal: return "WPA Personal"
+        case .wpaPersonalMixed: return "WPA/WPA2 Personal"
+        case .wpa2Personal: return "WPA2 Personal"
+        case .personal: return "Personal"
+        case .dynamicWEP: return "Dynamic WEP"
+        case .wpaEnterprise: return "WPA Enterprise"
+        case .wpaEnterpriseMixed: return "WPA/WPA2 Enterprise"
+        case .wpa2Enterprise: return "WPA2 Enterprise"
+        case .wpa3Personal: return "WPA3 Personal"
+        case .wpa3Enterprise: return "WPA3 Enterprise"
+        case .wpa3Transition: return "WPA2/WPA3 Personal"
+        case .unknown: return "Unknown"
+        @unknown default: return "Unknown"
+        }
+    }
+    
+    private func channelDescription(_ channel: CWChannel?) -> String {
+        guard let channel else { return kUnknown }
+        let band = frequencyBand(for: channel.channelNumber)
+        let width = bandwidth(for: channel.channelWidth)
+        return "\(channel.channelNumber) (\(band), \(width))"
+    }
+    
+    private func frequencyBand(for channelNumber: Int) -> String {
+        if (1...14).contains(channelNumber) { return "2.4 GHz" }
+        if channelNumber >= 183 { return "6 GHz" }
+        return "5 GHz"
+    }
+    
+    private func bandwidth(for width: CWChannelWidth) -> String {
+        switch width {
+        case .unknown: return "Unknown"
+        case .width20MHz: return "20 MHz"
+        case .width40MHz: return "40 MHz"
+        case .width80MHz: return "80 MHz"
+        case .width160MHz: return "160 MHz"
+        case .width80MHzPlus80MHz: return "160 MHz (80+80)"
+        case .width320MHz: return "320 MHz"
+        @unknown default: return "Unknown"
         }
     }
 }

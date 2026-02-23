@@ -13,6 +13,41 @@ class ExternalToolsService {
         }.value
     }
     
+    func runCommandStreaming(_ executable: String, arguments: [String]) -> AsyncStream<String> {
+        AsyncStream { continuation in
+            Task.detached(priority: .background) {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+                task.arguments = [executable] + arguments
+                
+                let pipe = Pipe()
+                task.standardOutput = pipe
+                task.standardError = pipe
+                
+                pipe.fileHandleForReading.readabilityHandler = { handle in
+                    let data = handle.availableData
+                    guard !data.isEmpty else { return }
+                    if let chunk = String(data: data, encoding: .utf8) {
+                        chunk
+                            .split(separator: "\n", omittingEmptySubsequences: false)
+                            .forEach { continuation.yield(String($0)) }
+                    }
+                }
+                
+                task.terminationHandler = { _ in
+                    continuation.finish()
+                }
+                
+                do {
+                    try task.run()
+                } catch {
+                    continuation.yield("\(executable) failed to launch: \(error.localizedDescription)")
+                    continuation.finish()
+                }
+            }
+        }
+    }
+    
     // MARK: - Helpers
     
     private func checkToolAvailable(_ name: String) -> Bool {
