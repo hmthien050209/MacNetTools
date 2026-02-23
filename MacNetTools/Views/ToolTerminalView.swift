@@ -20,7 +20,9 @@ struct ToolTerminalView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(outputLines.indices, id: \.self) { i in
                             Text(outputLines[i])
-                                .font(.custom(kMonoFontName, size: 11))
+                                .font(
+                                    .custom(kMonoFontName, size: kMonoFontSize)
+                                )
                                 .foregroundStyle(.green)
                         }
                     }

@@ -51,7 +51,10 @@ struct LogView: View {
                     .help("Copy full log to clipboard")
                     .controlSize(.small)
                     Button {
-                        saveLogToDesktop(content: logText, prefix: "MacNetTools")
+                        saveLogToDesktop(
+                            content: logText,
+                            prefix: "MacNetTools"
+                        )
                         flashFeedback($isSaved)
                     } label: {
                         Label(
@@ -72,7 +75,9 @@ struct LogView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         ForEach(filtered) { entry in
                             Text(entry.message)
-                                .font(.custom(kMonoFontName, size: 11))
+                                .font(
+                                    .custom(kMonoFontName, size: kMonoFontSize)
+                                )
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
                                 .id(entry.id)
