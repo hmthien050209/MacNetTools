@@ -1,11 +1,14 @@
 import Foundation
+import Observation
 
 @Observable
 class PingViewModel {
     var pings: [PingModel] = []
+    private let service = ExternalToolsService()
     
+    // Updates UI: Ensure this runs on MainActor
+    @MainActor
     func addPing(target: String, status: String) {
-        // Replace the existing entry for the same target if present
         if let index = pings.firstIndex(where: { $0.target == target }) {
             let existingId = pings[index].id
             pings[index] = PingModel(id: existingId, target: target, status: status)
@@ -14,96 +17,45 @@ class PingViewModel {
         }
     }
     
+    /// Non-streaming version: Collects all lines and then calculates status
     func runPing(target: String) async -> (status: String, logLines: [String]) {
-        await Task.detached(priority: .background) {
-            await self.executePing(target: target)
-        }.value
-    }
-    
-    func runPingStream(target: String) -> AsyncStream<String> {
-        AsyncStream { continuation in
-            Task.detached(priority: .background) {
-                let pingPath = FileManager.default.isExecutableFile(atPath: "/sbin/ping") ? "/sbin/ping" : "/bin/ping"
-                
-                let task = Process()
-                task.executableURL = URL(fileURLWithPath: pingPath)
-                task.arguments = ["-c", "3", target]
-                
-                let pipe = Pipe()
-                task.standardOutput = pipe
-                task.standardError = pipe
-                
-                pipe.fileHandleForReading.readabilityHandler = { handle in
-                    let data = handle.availableData
-                    guard !data.isEmpty else { return }
-                    if let chunk = String(data: data, encoding: .utf8) {
-                        chunk
-                            .split(separator: "\n", omittingEmptySubsequences: false)
-                            .forEach { continuation.yield(String($0)) }
-                    }
-                }
-                
-                task.terminationHandler = { _ in
-                    continuation.finish()
-                }
-                
-                do {
-                    try task.run()
-                } catch {
-                    continuation.yield("Ping failed to launch: \(error.localizedDescription)")
-                    continuation.finish()
-                }
-            }
+        var lines: [String] = []
+        
+        // Consume the stream entirely
+        for await line in runPingStream(target: target) {
+            if !line.isEmpty { lines.append(line) }
         }
-    }
-    
-    // MARK: - Helpers
-    private func executePing(target: String) -> (status: String, logLines: [String]) {
-        let pingPath = FileManager.default.isExecutableFile(atPath: "/sbin/ping") ? "/sbin/ping" : "/bin/ping"
-        
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: pingPath)
-        task.arguments = ["-c", "3", target]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        task.standardError = pipe
-        
-        do {
-            try task.run()
-        } catch {
-            return ("Failed", ["Ping failed to launch: \(error.localizedDescription)"])
-        }
-        
-        task.waitUntilExit()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
-        
-        let output = String(data: data, encoding: .utf8) ?? ""
-        let logLines = output
-            .split(separator: "\n", omittingEmptySubsequences: true)
-            .map { String($0) }
         
         let status: String
-        if task.terminationStatus == 0, let avg = extractAverageLatency(from: logLines) {
+        if let avg = extractAverageLatency(from: lines) {
             status = "\(avg) ms"
-        } else if task.terminationStatus == 0 {
+        } else if lines.contains(where: { $0.contains("64 bytes from") }) {
             status = "Reachable"
         } else {
-            status = "Failed (\(task.terminationStatus))"
+            status = "Failed"
         }
-        return (status, logLines)
+        
+        return (status, lines)
     }
     
+    /// Streaming version: Pipes directly from ExternalToolsService
+    func runPingStream(target: String) -> AsyncStream<String> {
+        // No need to check paths manually; 'env' handles 'ping' location
+        return service.runCommandStreaming("ping", arguments: ["-c", "3", target])
+    }
+    
+    // MARK: - Logic
     private func extractAverageLatency(from lines: [String]) -> String? {
         guard let summary = lines.first(where: { $0.contains("round-trip") || $0.contains("avg") }) else { return nil }
-        guard let metricsPart = summary.split(separator: "=").last else { return nil }
+        let parts = summary.split(separator: "=")
+        guard let metricsPart = parts.last else { return nil }
+        
         let components = metricsPart
             .replacingOccurrences(of: " ms", with: "")
+            .trimmingCharacters(in: .whitespaces)
             .split(separator: "/")
-        // Expecting min/avg/max/stddev
-        if components.count >= 2 {
-            return String(components[1])
-        }
-        return nil
+        
+        // ping format: min/avg/max/mdev
+        return components.indices.contains(1) ? String(components[1]) : nil
     }
 }

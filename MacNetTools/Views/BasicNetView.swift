@@ -5,7 +5,7 @@ struct BasicNetView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Basic Network")
+            Text("Basic Network Information")
                 .font(.headline)
             
             if let model = viewModel.basicNetModel {

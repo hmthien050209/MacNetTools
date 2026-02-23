@@ -51,9 +51,12 @@ struct ExternalToolsView : View {
         guard !target.isEmpty else { return }
         
         logViewModel?.append("Running traceroute to \(target)...")
-        Task.detached(priority: .background) {
+        
+        Task {
+            // No need for detached if the service is non-blocking
             for await line in viewModel.runTracerouteStream(target: target) {
-                await MainActor.run {
+                // Check if the line is actually useful before updating UI
+                if !line.trimmingCharacters(in: .whitespaces).isEmpty {
                     logViewModel?.append(line)
                 }
             }
@@ -62,11 +65,9 @@ struct ExternalToolsView : View {
     
     private func runSpeedtest() {
         logViewModel?.append("Running speedtest...")
-        Task.detached(priority: .background) {
+        Task {
             for await line in viewModel.runSpeedtestStream() {
-                await MainActor.run {
-                    logViewModel?.append(line)
-                }
+                logViewModel?.append(line)
             }
         }
     }

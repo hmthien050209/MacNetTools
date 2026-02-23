@@ -8,9 +8,9 @@ class BasicNetViewModel {
     private let locationPermissionService = LocationPermissionService()
     
     @discardableResult
-    func updateBasicNet() -> BasicNetModel? {
+    func updateBasicNet() async -> BasicNetModel? {
         locationPermissionService.requestPermission()
-        basicNetModel = coreWlanService.getBasicNetModel()
+        basicNetModel = await coreWlanService.getBasicNetModel()
         return basicNetModel
     }
 }

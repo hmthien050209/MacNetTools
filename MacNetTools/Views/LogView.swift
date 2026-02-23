@@ -2,23 +2,38 @@ import SwiftUI
 
 struct LogView : View {
     var logViewModel: LogViewModel
+    @State private var searchText = ""
     
     var body: some View {
+        let filtered = logViewModel.filteredEntries(searchText: searchText)
+        
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Activity Log")
-                    .font(.headline)
-                Spacer()
-                Button("Clear") {
-                    logViewModel.clear()
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Activity Log")
+                        .font(.headline)
+                    Spacer()
+                    Button("Clear logs") {
+                        logViewModel.clear()
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
+                
+                HStack {
+                    TextField("Filter...", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+                    Spacer()
+                    Button("Clear filter") {
+                        searchText = ""
+                    }
+                    .controlSize(.small)
+                }
             }
             
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
-                        ForEach(logViewModel.entries) { entry in
+                        ForEach(filtered) { entry in
                             Text(entry.message)
                                 .font(.custom(kMonoFontName, size: 11))
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -28,8 +43,8 @@ struct LogView : View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(8)
-                    .onChange(of: logViewModel.entries.count) { _, _ in
-                        if let last = logViewModel.entries.last {
+                    .onChange(of: filtered.count) { _, _ in
+                        if let last = filtered.last {
                             withAnimation {
                                 proxy.scrollTo(last.id, anchor: .bottom)
                             }

@@ -9,43 +9,51 @@ struct MainView : View {
     @State private var pollIntervalSeconds: Int = 3
     @State private var pollTask: Task<Void, Never>?
     
+    // Last Updated State
+    @State private var lastUpdatedAt: Date? = nil
+    
+    private var isoFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.timeZone = .current
+        
+        formatter.formatOptions = [
+            .withInternetDateTime,
+            .withDashSeparatorInDate,
+            .withColonSeparatorInTime
+        ]
+        return formatter
+    }()
+    
     private let pingTargets = ["1.1.1.1", "8.8.8.8"]
     
     var body: some View {
-        GeometryReader { proxy in
+        VStack(spacing: 0) {
+            // Header Bar
+            headerView
+                .padding()
+                .background(.background)
+            
+            Divider()
+            
             ScrollView {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("MacNetTools")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                        Spacer()
-                        HStack(spacing: 8) {
-                            Text("Poll:")
-                            Button {
-                                updatePollInterval(by: -1)
-                            } label: { Image(systemName: "minus.circle") }
-                            Text("\(pollIntervalSeconds)s")
-                                .font(.custom(kMonoFontName, size: 12))
-                                .frame(minWidth: 32)
-                            Button {
-                                updatePollInterval(by: 1)
-                            } label: { Image(systemName: "plus.circle") }
-                        }
-                    }
-                    
-                    let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
-                    
-                    LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                // Using .flexible with a min/max prevents the "cramping" that causes overlaps
+                let columns = [
+                    GridItem(.adaptive(minimum: 350, maximum: .infinity), spacing: 20, alignment: .top)
+                ]
+                
+                LazyVGrid(columns: columns, spacing: 20) {
+                    Group {
                         BasicNetView(viewModel: basicNetViewModel)
                         WiFiView(viewModel: wiFiViewModel)
                         PingView(viewModel: pingViewModel)
-                        ExternalToolsView(logViewModel: logViewModel)
-                        LogView(logViewModel: logViewModel)
                     }
-                    .frame(minWidth: proxy.size.width * 0.95)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    
+                    // Tools and Logs usually need more horizontal space or consistent height
+                    ExternalToolsView(logViewModel: logViewModel)
+                    LogView(logViewModel: logViewModel)
                 }
-                .padding(16)
+                .padding()
             }
         }
         .task {
@@ -59,10 +67,50 @@ struct MainView : View {
         }
     }
     
+    private var headerView: some View {
+        HStack(alignment: .lastTextBaseline) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("MacNetTools")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                
+                Group {
+                    if let lastUpdate = lastUpdatedAt {
+                        Text("Last updated: \(isoFormatter.string(from: lastUpdate))")
+                    } else {
+                        Text("Refreshing...")
+                    }
+                }
+                .font(.custom(kMonoFontName, size: 10))
+                .foregroundStyle(.secondary)
+            }
+            
+            Spacer()
+            
+            HStack(spacing: 12) {
+                Text("Poll Interval:")
+                    .font(.subheadline)
+                
+                HStack(spacing: 8) {
+                    Button { updatePollInterval(by: -1) } label: { Image(systemName: "minus.circle") }
+                    Text("\(pollIntervalSeconds)s")
+                        .font(.system(.subheadline, design: .monospaced))
+                        .frame(width: 30)
+                    Button { updatePollInterval(by: 1) } label: { Image(systemName: "plus.circle") }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+        }
+    }
+    
     @MainActor
     private func startPolling() {
         pollTask?.cancel()
-        pollTask = Task { @MainActor in
+        pollTask = Task {
             while !Task.isCancelled {
                 await refreshData()
                 try? await Task.sleep(for: .seconds(Double(pollIntervalSeconds)))
@@ -72,15 +120,19 @@ struct MainView : View {
     
     @MainActor
     private func refreshData() async {
-        await refreshBasicNet()
-        await refreshWiFi()
-        await refreshPings()
+        async let basicUpdate: Void = refreshBasicNet()
+        async let wifiUpdate: Void = refreshWiFi()
+        async let pingUpdate: Void = refreshPings()
+        
+        _ = await (basicUpdate, wifiUpdate, pingUpdate)
+        
+        lastUpdatedAt = Date()
     }
     
     @MainActor
     private func refreshBasicNet() async {
         let previous = basicNetViewModel.basicNetModel
-        let updated = basicNetViewModel.updateBasicNet()
+        let updated = await basicNetViewModel.updateBasicNet()
         
         guard let updated else {
             if previous != nil {
@@ -128,10 +180,13 @@ struct MainView : View {
             targets.append(("Router (\(router))", router))
         }
         
-        for target in targets {
-            let result = await pingViewModel.runPing(target: target.host)
-            await MainActor.run {
-                pingViewModel.addPing(target: target.display, status: result.status)
+        // Run pings in parallel for even faster updates
+        await withTaskGroup(of: Void.self) { group in
+            for target in targets {
+                group.addTask {
+                    let result = await pingViewModel.runPing(target: target.host)
+                    await pingViewModel.addPing(target: target.display, status: result.status)
+                }
             }
         }
     }
@@ -141,8 +196,6 @@ struct MainView : View {
         guard old != new else { return }
         if let old {
             logViewModel.append("\(label): changed from \"\(old)\" to \"\(new)\"")
-        } else {
-            logViewModel.append("\(label): set to \"\(new)\"")
         }
     }
     

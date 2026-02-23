@@ -17,3 +17,7 @@ struct WiFiModel {
     /// Interface name (e.g. en0) for status bar.
     var interfaceName: String?
 }
+
+struct Ipify : Decodable {
+    var ip: String
+}
