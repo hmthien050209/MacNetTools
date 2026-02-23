@@ -46,7 +46,27 @@ class PingViewModel {
             .split(separator: "\n", omittingEmptySubsequences: true)
             .map { String($0) }
         
-        let status = task.terminationStatus == 0 ? "Reachable" : "Failed (\(task.terminationStatus))"
+        let status: String
+        if task.terminationStatus == 0, let avg = extractAverageLatency(from: logLines) {
+            status = "\(avg) ms"
+        } else if task.terminationStatus == 0 {
+            status = "Reachable"
+        } else {
+            status = "Failed (\(task.terminationStatus))"
+        }
         return (status, logLines)
+    }
+    
+    private func extractAverageLatency(from lines: [String]) -> String? {
+        guard let summary = lines.first(where: { $0.contains("round-trip") || $0.contains("avg") }) else { return nil }
+        guard let metricsPart = summary.split(separator: "=").last else { return nil }
+        let components = metricsPart
+            .replacingOccurrences(of: " ms", with: "")
+            .split(separator: "/")
+        // Expecting min/avg/max/stddev
+        if components.count >= 2 {
+            return String(components[1])
+        }
+        return nil
     }
 }

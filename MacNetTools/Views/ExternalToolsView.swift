@@ -7,50 +7,36 @@ struct ExternalToolsView : View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("External Tools")
-                .font(.headline)
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Traceroute")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                TextField("Target host", text: $tracerouteTarget)
-                    .textFieldStyle(.roundedBorder)
-                
-                Button {
-                    runTraceroute()
-                } label: {
-                    Label("Run traceroute", systemImage: "point.topleft.down.curvedto.point.bottomright.up")
-                        .frame(maxWidth: .infinity)
-                }
-                .disabled(!viewModel.tracerouteAvailable || tracerouteTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            HStack {
+                Text("External Tools")
+                    .font(.headline)
+                Spacer()
+                Text(toolAvailabilityText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             
-            Divider()
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Speedtest")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                
-                Button {
-                    runSpeedtest()
-                } label: {
-                    Label("Run speedtest", systemImage: "gauge")
-                        .frame(maxWidth: .infinity)
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                GridRow {
+                    Text("Traceroute")
+                        .fontWeight(.semibold)
+                    HStack {
+                        TextField("Target", text: $tracerouteTarget)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Run") { runTraceroute() }
+                            .disabled(!viewModel.tracerouteAvailable || tracerouteTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
                 }
-                .disabled(!viewModel.speedtestAvailable)
+                
+                GridRow {
+                    Text("Speedtest")
+                        .fontWeight(.semibold)
+                    Button("Run") { runSpeedtest() }
+                        .disabled(!viewModel.speedtestAvailable)
+                }
             }
-            
-            Spacer()
-            
-            Text(toolAvailabilityText)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
         }
-        .padding()
-        .frame(minWidth: 260, maxWidth: .infinity, maxHeight: 300, alignment: .topLeading)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private var toolAvailabilityText: String {

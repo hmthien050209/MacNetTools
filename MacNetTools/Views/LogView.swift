@@ -25,11 +25,14 @@ struct LogView : View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
             }
             .background(.gray.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.gray.opacity(0.2))
+            )
         }
-        .padding()
         .frame(minWidth: 400, maxWidth: .infinity, maxHeight: 400, alignment: .topLeading)
     }
 }

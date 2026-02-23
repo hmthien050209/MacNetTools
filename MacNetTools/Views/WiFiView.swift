@@ -1,70 +1,47 @@
 import SwiftUI
 
 struct WiFiView: View {
-    @State private var viewModel = WiFiViewModel()
-    var logViewModel: LogViewModel?
+    var viewModel: WiFiViewModel
     
     var body: some View {
-        VStack(spacing: 20) {
-            if let model = viewModel.wiFiModel {
-                InfoRow(label: "SSID", value: model.ssid)
-                InfoRow(label: "BSSID", value: model.connectedBssid)
-                InfoRow(label: "Interface", value: model.interfaceName ?? kUnknown)
-                InfoRow(label: "Channel", value: model.channel.map { "\($0.channelNumber)" } ?? kUnknown)
-                InfoRow(label: "Security", value: String(describing: model.security))
-                InfoRow(label: "RSSI / Noise", value: "\(model.rssi) / \(model.noise) dBm")
-                InfoRow(label: "SNR", value: "\(model.signalNoiseRatio) dB")
-                InfoRow(label: "TX Rate", value: "\(Int(model.txRateMbps)) Mbps")
-            } else {
-                ContentUnavailableView("No WiFi Data", systemImage: "wifi.slash")
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            Text("WiFi")
+                .font(.headline)
             
-            Button("Update") {
-                let previousModel = viewModel.wiFiModel
-                let updatedModel = viewModel.updateWiFi()
-                
-                if let model = updatedModel {
-                    let ssidChanged = previousModel.map { $0.ssid != model.ssid } ?? false
-                    let bssidChanged = previousModel.map { $0.connectedBssid != model.connectedBssid } ?? false
-                    
-                    if ssidChanged || bssidChanged {
-                        if ssidChanged {
-                            logViewModel?.append("SSID changed to \(model.ssid)")
-                        }
-                        if bssidChanged {
-                            logViewModel?.append("BSSID changed to \(model.connectedBssid)")
-                        }
-                    } else {
-                        logViewModel?.append("WiFi details refreshed")
-                    }
-                } else {
-                    logViewModel?.append("Failed to fetch WiFi information")
+            if let model = viewModel.wiFiModel {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+                    infoRow("SSID", model.ssid)
+                    infoRow("BSSID", model.connectedBssid)
+                    infoRow("Interface", model.interfaceName ?? kUnknown)
+                    infoRow("Channel", model.channel.map { "\($0.channelNumber)" } ?? kUnknown)
+                    infoRow("Security", String(describing: model.security))
+                    infoRow("RSSI", "\(model.rssi) dBm")
+                    infoRow("Noise", "\(model.noise) dBm")
+                    infoRow("SNR", "\(model.signalNoiseRatio) dB")
+                    infoRow("TX Rate", "\(Int(model.txRateMbps)) Mbps")
+                    infoRow("Country", model.countryCode)
                 }
+            } else {
+                Text("No WiFi data")
+                    .foregroundStyle(.secondary)
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
         }
-        .padding()
-        .frame(minWidth: 300, maxWidth: .infinity, maxHeight: 450)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
-}
-
-// Helper view to keep the main body clean and avoid "Optional(...)" text
-struct InfoRow: View {
-    let label: String
-    let value: String
     
-    var body: some View {
-        HStack {
-            Text("\(label):")
-                .fontWeight(.bold)
-            Spacer()
+    @ViewBuilder
+    private func infoRow(_ label: String, _ value: String) -> some View {
+        GridRow {
+            Text(label)
+                .fontWeight(.semibold)
             Text(value)
-                .textSelection(.enabled) // Allows users to copy the BSSID
+                .font(.custom(kMonoFontName, size: 12))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
         }
     }
 }
 
 #Preview {
-    WiFiView()
+    WiFiView(viewModel: WiFiViewModel())
 }
