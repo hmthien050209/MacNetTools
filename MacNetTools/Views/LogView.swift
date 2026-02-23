@@ -15,17 +15,27 @@ struct LogView : View {
                 .controlSize(.small)
             }
             
-            ScrollView {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(logViewModel.entries) { entry in
-                        Text(entry.message)
-                            .font(.custom(kMonoFontName, size: 11))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(logViewModel.entries) { entry in
+                            Text(entry.message)
+                                .font(.custom(kMonoFontName, size: 11))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                                .id(entry.id)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .onChange(of: logViewModel.entries.count) { _, _ in
+                        if let last = logViewModel.entries.last {
+                            withAnimation {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(8)
             }
             .background(.gray.opacity(0.05))
             .overlay(

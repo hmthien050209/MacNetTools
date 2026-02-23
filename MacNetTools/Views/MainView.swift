@@ -12,38 +12,42 @@ struct MainView : View {
     private let pingTargets = ["1.1.1.1", "8.8.8.8"]
     
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("MacNetTools")
-                    .font(.title3)
-                    .fontWeight(.semibold)
-                Spacer()
-                HStack(spacing: 8) {
-                    Text("Poll:")
-                    Button {
-                        updatePollInterval(by: -1)
-                    } label: { Image(systemName: "minus.circle") }
-                    Text("\(pollIntervalSeconds)s")
-                        .font(.custom(kMonoFontName, size: 12))
-                        .frame(minWidth: 32)
-                    Button {
-                        updatePollInterval(by: 1)
-                    } label: { Image(systemName: "plus.circle") }
+        GeometryReader { proxy in
+            ScrollView {
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("MacNetTools")
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        HStack(spacing: 8) {
+                            Text("Poll:")
+                            Button {
+                                updatePollInterval(by: -1)
+                            } label: { Image(systemName: "minus.circle") }
+                            Text("\(pollIntervalSeconds)s")
+                                .font(.custom(kMonoFontName, size: 12))
+                                .frame(minWidth: 32)
+                            Button {
+                                updatePollInterval(by: 1)
+                            } label: { Image(systemName: "plus.circle") }
+                        }
+                    }
+                    
+                    let columns = [GridItem(.adaptive(minimum: 320), spacing: 16, alignment: .top)]
+                    
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 16) {
+                        BasicNetView(viewModel: basicNetViewModel)
+                        WiFiView(viewModel: wiFiViewModel)
+                        PingView(viewModel: pingViewModel)
+                        ExternalToolsView(logViewModel: logViewModel)
+                        LogView(logViewModel: logViewModel)
+                    }
+                    .frame(minWidth: proxy.size.width * 0.95)
                 }
-            }
-            
-            HStack(alignment: .top, spacing: 16) {
-                BasicNetView(viewModel: basicNetViewModel)
-                WiFiView(viewModel: wiFiViewModel)
-                PingView(viewModel: pingViewModel)
-            }
-            
-            HStack(alignment: .top, spacing: 16) {
-                ExternalToolsView(logViewModel: logViewModel)
-                LogView(logViewModel: logViewModel)
+                .padding(16)
             }
         }
-        .padding(16)
         .task {
             startPolling()
         }
