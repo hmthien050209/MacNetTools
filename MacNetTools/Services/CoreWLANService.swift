@@ -348,34 +348,23 @@ class CoreWLANService {
 
     /// Dynamically fetches the vendor name from a BSSID using a public API
     func fetchVendorName(bssid: String?) async -> String {
-        guard let safeBssid = bssid else {
-            return "Unknown"
-        }
+        guard let bssid = bssid, !bssid.isEmpty else { return "Unknown" }
 
-        if let cached = await vendorCache.get(safeBssid) {
-            return cached
-        }
+        if let cached = await vendorCache.get(bssid) { return cached }
 
-        guard let url = URL(string: "https://api.macvendors.com/\(safeBssid)")
-        else {
-            return "Invalid BSSID"
-        }
+        guard let url = URL(string: "https://api.macvendors.com/\(bssid)")
+        else { return "Invalid BSSID" }
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: url)
+            let (data, res) = try await URLSession.shared.data(from: url)
+            let name =
+                (res as? HTTPURLResponse)?.statusCode == 200
+                ? String(data: data, encoding: .utf8) ?? "Unknown Vendor"
+                : "Generic / Unknown"
 
-            if let httpResponse = response as? HTTPURLResponse,
-                httpResponse.statusCode == 200
-            {
-                let name =
-                    String(data: data, encoding: .utf8) ?? "Unknown Vendor"
-                await vendorCache.set(name, for: safeBssid)
-                return name
-            } else {
-                return "Generic / Unknown"
-            }
+            await vendorCache.set(name, for: bssid)
+            return name
         } catch {
-            print("Vendor fetch error: \(error)")
             return "Lookup Failed"
         }
     }
