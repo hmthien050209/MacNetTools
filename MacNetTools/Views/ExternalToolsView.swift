@@ -1,10 +1,10 @@
 import SwiftUI
 
-struct ExternalToolsView : View {
+struct ExternalToolsView: View {
     @State private var viewModel = ExternalToolsViewModel()
     @State private var tracerouteTarget = "1.1.1.1"
-    var logViewModel: LogViewModel?
-    
+    @State private var activeSession: ToolSession?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -15,64 +15,64 @@ struct ExternalToolsView : View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            
-            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+
+            Grid(alignment: .leading) {
                 GridRow {
                     Text("Traceroute")
-                        .fontWeight(.semibold)
                     HStack {
                         TextField("Target", text: $tracerouteTarget)
                             .textFieldStyle(.roundedBorder)
-                        Button("Run") { runTraceroute() }
-                            .disabled(!viewModel.tracerouteAvailable || tracerouteTarget.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Button("Run") {
+                            let stream = viewModel.startTraceroute(
+                                target: tracerouteTarget
+                            )
+                            activeSession = ToolSession(
+                                name: "Traceroute: \(tracerouteTarget)",
+                                stream: stream
+                            )
+                        }
+                        .disabled(
+                            !viewModel.tracerouteAvailable
+                                || tracerouteTarget.trimmingCharacters(
+                                    in: .whitespacesAndNewlines
+                                ).isEmpty
+                        )
                     }
                 }
-                
+
                 GridRow {
                     Text("Speedtest")
-                        .fontWeight(.semibold)
-                    Button("Run") { runSpeedtest() }
-                        .disabled(!viewModel.speedtestAvailable)
+                    Button("Run Speedtest") {
+                        let stream = viewModel.startSpeedtest()
+                        activeSession = ToolSession(
+                            name: "Speedtest",
+                            stream: stream
+                        )
+                    }
+                    .disabled(!viewModel.speedtestAvailable)
                 }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .task { await viewModel.checkTools() }
+        .sheet(item: $activeSession) { session in
+            ToolTerminalView(title: session.name, stream: session.stream) {
+                viewModel.stopCurrentTool()
+                activeSession = nil
+            }
+        }
     }
-    
+
     private var toolAvailabilityText: String {
         var messages: [String] = []
-        messages.append(viewModel.tracerouteAvailable ? "Traceroute detected" : "Traceroute not found in PATH")
-        messages.append(viewModel.speedtestAvailable ? "Speedtest available" : "Speedtest CLI not detected")
+        messages.append(
+            viewModel.tracerouteAvailable
+                ? "Traceroute detected" : "Traceroute not found in PATH"
+        )
+        messages.append(
+            viewModel.speedtestAvailable
+                ? "Speedtest available" : "Speedtest CLI not detected"
+        )
         return messages.joined(separator: " · ")
     }
-    
-    private func runTraceroute() {
-        let target = tracerouteTarget.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !target.isEmpty else { return }
-        
-        logViewModel?.append("Running traceroute to \(target)...")
-        
-        Task {
-            // No need for detached if the service is non-blocking
-            for await line in viewModel.runTracerouteStream(target: target) {
-                // Check if the line is actually useful before updating UI
-                if !line.trimmingCharacters(in: .whitespaces).isEmpty {
-                    logViewModel?.append(line)
-                }
-            }
-        }
-    }
-    
-    private func runSpeedtest() {
-        logViewModel?.append("Running speedtest...")
-        Task {
-            for await line in viewModel.runSpeedtestStream() {
-                logViewModel?.append(line)
-            }
-        }
-    }
-}
-
-#Preview {
-    ExternalToolsView()
 }

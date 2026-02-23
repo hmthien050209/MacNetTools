@@ -3,7 +3,7 @@ import Foundation
 struct LogEntry: Identifiable {
     let id: UUID
     let message: String
-    
+
     init(id: UUID = UUID(), message: String) {
         self.id = id
         self.message = message
@@ -11,7 +11,7 @@ struct LogEntry: Identifiable {
 }
 
 struct LogModel {
-    var logEntries: Array<LogEntry>
+    var logEntries: [LogEntry]
 }
 
 enum LogScope {

@@ -6,7 +6,7 @@ struct PingModel: Identifiable {
     var target: String
     /// Formatted ping latency (123ms, etc.)
     var status: String
-    
+
     init(id: UUID = UUID(), target: String, status: String) {
         self.id = id
         self.target = target

@@ -5,7 +5,7 @@ struct MainModel {
     var lastUpdated: Date
     var basicNet: BasicNetModel
     var wiFi: WiFiModel
-    var pings: Array<PingModel>
+    var pings: [PingModel]
     var externalTools: ExternalToolsModel
     /// True while a data refresh is running in the background.
     var refreshInProgress: Bool

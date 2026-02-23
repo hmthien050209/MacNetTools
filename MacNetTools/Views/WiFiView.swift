@@ -1,16 +1,20 @@
-import SwiftUI
 import CoreWLAN
+import SwiftUI
 
 struct WiFiView: View {
     var viewModel: WiFiViewModel
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("WiFi")
                 .font(.headline)
-            
+
             if let model = viewModel.wiFiModel {
-                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 6) {
+                Grid(
+                    alignment: .leading,
+                    horizontalSpacing: 8,
+                    verticalSpacing: 6
+                ) {
                     infoRow("SSID", model.ssid)
                     infoRow("BSSID", model.connectedBssid)
                     infoRow("Interface", model.interfaceName ?? kUnknown)
@@ -29,7 +33,7 @@ struct WiFiView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
-    
+
     @ViewBuilder
     private func infoRow(_ label: String, _ value: String) -> some View {
         GridRow {
@@ -41,7 +45,7 @@ struct WiFiView: View {
                 .textSelection(.enabled)
         }
     }
-    
+
     private func readableSecurity(_ security: CWSecurity) -> String {
         switch security {
         case .none:
@@ -82,20 +86,20 @@ struct WiFiView: View {
             return "Unknown"
         }
     }
-    
+
     private func channelDescription(_ channel: CWChannel?) -> String {
         guard let channel else { return kUnknown }
         let band = frequencyBand(for: channel.channelNumber)
         let width = bandwidth(for: channel.channelWidth)
         return "\(channel.channelNumber) (\(band), \(width))"
     }
-    
+
     private func frequencyBand(for channelNumber: Int) -> String {
         if (1...14).contains(channelNumber) { return "2.4 GHz" }
         if channelNumber >= 183 { return "6 GHz" }
         return "5 GHz"
     }
-    
+
     private func bandwidth(for width: CWChannelWidth) -> String {
         switch width {
         case .width20MHz: return "20 MHz"

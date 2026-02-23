@@ -11,13 +11,13 @@ struct WiFiModel {
     var signalNoiseRatio: Int
     var countryCode: String
     /// All available BSSIDs for the current SSID.
-    var availableBssids: Array<String>
+    var availableBssids: [String]
     /// Negotiated WiFi transmit rate (Mbps)
     var txRateMbps: Double
     /// Interface name (e.g. en0) for status bar.
     var interfaceName: String?
 }
 
-struct Ipify : Decodable {
+struct Ipify: Decodable {
     var ip: String
 }

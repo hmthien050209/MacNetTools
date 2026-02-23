@@ -3,40 +3,36 @@ import Foundation
 @Observable
 class ExternalToolsViewModel {
     private let service = ExternalToolsService()
-    
-    var tracerouteAvailable: Bool = false
-    var speedtestAvailable: Bool = false
-    private var preferredSpeedtestCommand: String?
-    
-    init() {
-        // Kick off check in background immediately
-        Task {
-            let trace = await service.isToolAvailable("traceroute")
-            let speedCmd = await resolveSpeedtestCommand()
-            
-            // Hop back to MainActor only to update UI state
-            await MainActor.run {
-                self.tracerouteAvailable = trace
-                self.preferredSpeedtestCommand = speedCmd
-                self.speedtestAvailable = speedCmd != nil
-            }
-        }
+
+    // Availability states
+    var tracerouteAvailable = false
+    var speedtestAvailable = false
+
+    // Active session state
+    var activeStopAction: (() -> Void)?
+
+    func checkTools() async {
+        tracerouteAvailable = await service.isToolAvailable("traceroute")
+        speedtestAvailable = await service.isToolAvailable("speedtest")
     }
-    
-    func runTracerouteStream(target: String) -> AsyncStream<String> {
-        service.runCommandStreaming("traceroute", arguments: [target])
+
+    func startTraceroute(target: String) -> AsyncStream<String> {
+        let result = service.runCommandStreaming(
+            "traceroute",
+            arguments: [target]
+        )
+        self.activeStopAction = result.stop
+        return result.stream
     }
-    
-    func runSpeedtestStream() -> AsyncStream<String> {
-        guard let cmd = preferredSpeedtestCommand else {
-            return AsyncStream { $0.yield("No tool found"); $0.finish() }
-        }
-        return service.runCommandStreaming(cmd, arguments: [])
+
+    func startSpeedtest() -> AsyncStream<String> {
+        let result = service.runCommandStreaming("speedtest", arguments: [])
+        self.activeStopAction = result.stop
+        return result.stream
     }
-    
-    private func resolveSpeedtestCommand() async -> String? {
-        if await service.isToolAvailable("speedtest") { return "speedtest" }
-        if await service.isToolAvailable("networkQuality") { return "networkQuality" }
-        return nil
+
+    func stopCurrentTool() {
+        activeStopAction?()
+        activeStopAction = nil
     }
 }
