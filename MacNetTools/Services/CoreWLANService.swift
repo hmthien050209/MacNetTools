@@ -19,9 +19,27 @@ class CoreWLANService {
         let noise = interface.noiseMeasurement()
         let signalNoiseRatio = rssi - noise
 
-        // Roaming stuff
-        // Currently returning blank arrays
-        // TODO: map available BSSIDs to the same SSIDs
+        // WiFi encryption info
+        var encryptionInfo: String? = nil
+
+        if let ssid = interface.ssid(),
+            let iface = CWWiFiClient.shared().interface()
+        {
+            do {
+                if let networks = try? iface.scanForNetworks(
+                    withSSID: ssid.data(using: .utf8)
+                ) {
+                    if let currentNet = networks.first(where: {
+                        $0.bssid == interface.bssid()
+                    }) {
+                        if let cipher = extractCipherInfo(from: currentNet) {
+                            encryptionInfo =
+                                "\(cipher.group ?? "?") / \(cipher.pairwise.joined(separator: ", "))"
+                        }
+                    }
+                }
+            }
+        }
 
         return WiFiModel(
             ssid: interface.ssid() ?? kUnknown,
@@ -33,9 +51,10 @@ class CoreWLANService {
             noise: noise,
             signalNoiseRatio: signalNoiseRatio,
             countryCode: interface.countryCode() ?? kUnknown,
-            availableBssids: [],
+            availableBssids: getBSSIDsForSSID(interface.ssid() ?? ""),
             txRateMbps: interface.transmitRate(),
-            interfaceName: interface.interfaceName
+            interfaceName: interface.interfaceName,
+            encryptionInfo: encryptionInfo ?? kUnknown,
         )
     }
 
@@ -67,6 +86,21 @@ class CoreWLANService {
 
     // MARK: - Helpers
 
+    // Finds all BSSIDs for the same SSID as the connected network
+    private func getBSSIDsForSSID(_ ssid: String) -> [String] {
+        guard let iface = CWWiFiClient.shared().interface() else { return [] }
+        do {
+            let networks = try iface.scanForNetworks(
+                withSSID: ssid.data(using: .utf8)
+            )
+            return networks.compactMap { $0.bssid }
+        } catch {
+            print("Scan failed: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    /// Get our public IP from the specified API provider (via API URL)
     private func getPublicIp(apiUrl: String) async -> String? {
         guard let url = URL(string: apiUrl) else { return nil }
 
@@ -101,7 +135,7 @@ class CoreWLANService {
             return (nil, mtu)
         }
 
-        // 1. Get Router/Gateway (Global IPv4 State)
+        // Get Router/Gateway (Global IPv4 State)
         if let dict = SCDynamicStoreCopyValue(
             dynamicStore,
             "State:/Network/Global/IPv4" as CFString
@@ -111,7 +145,7 @@ class CoreWLANService {
             router = gateway
         }
 
-        // 2. Get MTU for the specific interface
+        // Get MTU for the specific interface
         guard
             let interfaces = SCNetworkInterfaceCopyAll()
                 as? [SCNetworkInterface]
@@ -205,5 +239,78 @@ class CoreWLANService {
         }
 
         return (address, subnet)
+    }
+
+    // MARK: - WiFi Security Stuff
+    private func parseInformationElements(_ ieData: Data) -> [(
+        id: UInt8, payload: Data
+    )] {
+        var result: [(UInt8, Data)] = []
+        var i = 0
+        while i + 1 < ieData.count {
+            let id = ieData[i]
+            let len = Int(ieData[i + 1])
+            let start = i + 2
+            let end = start + len
+            guard end <= ieData.count else { break }
+            result.append((id, ieData.subdata(in: start..<end)))
+            i = end
+        }
+        return result
+    }
+
+    private func cipherName(_ oui: [UInt8], _ type: UInt8) -> String {
+        if oui == [0x00, 0x0F, 0xAC] {
+            switch type {
+            case 1: return "WEP-40"
+            case 2: return "TKIP"
+            case 4: return "CCMP (AES)"
+            case 5: return "WEP-104"
+            default: return "RSN-\(type)"
+            }
+        } else if oui == [0x00, 0x50, 0xF2] {
+            switch type {
+            case 2: return "TKIP (WPA)"
+            case 4: return "CCMP (WPA)"
+            default: return "WPA-\(type)"
+            }
+        }
+        return String(
+            format: "%02X:%02X:%02X:%02X",
+            oui[0],
+            oui[1],
+            oui[2],
+            type
+        )
+    }
+
+    private func extractCipherInfo(from network: CWNetwork) -> (
+        group: String?, pairwise: [String]
+    )? {
+        guard let ie = network.informationElementData else { return nil }
+        let ies = parseInformationElements(ie)
+        if let rsn = ies.first(where: { $0.id == 48 }) {
+            let payload = rsn.payload
+            guard payload.count >= 8 else { return nil }
+            let group = cipherName(
+                [payload[2], payload[3], payload[4]],
+                payload[5]
+            )
+            let pairCount = Int(payload[6]) | (Int(payload[7]) << 8)
+            var pairwise: [String] = []
+            var i = 8
+            for _ in 0..<pairCount {
+                guard i + 3 < payload.count else { break }
+                pairwise.append(
+                    cipherName(
+                        [payload[i], payload[i + 1], payload[i + 2]],
+                        payload[i + 3]
+                    )
+                )
+                i += 4
+            }
+            return (group, pairwise)
+        }
+        return nil
     }
 }

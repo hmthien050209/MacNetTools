@@ -16,6 +16,7 @@ struct WiFiModel {
     var txRateMbps: Double
     /// Interface name (e.g. en0) for status bar.
     var interfaceName: String?
+    var encryptionInfo: String
 }
 
 struct Ipify: Decodable {

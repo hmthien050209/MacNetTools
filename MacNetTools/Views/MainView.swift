@@ -60,6 +60,7 @@ struct MainView: View {
 
                     // Logs usually need more horizontal space
                     LogView(logViewModel: logViewModel)
+                    BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
                 }
                 .padding()
             }

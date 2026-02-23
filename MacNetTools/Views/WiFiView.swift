@@ -17,14 +17,33 @@ struct WiFiView: View {
                 ) {
                     InfoGridRow(label: "SSID", value: model.ssid)
                     InfoGridRow(label: "BSSID", value: model.connectedBssid)
-                    InfoGridRow(label: "Interface", value: model.interfaceName ?? kUnknown)
-                    InfoGridRow(label: "Channel", value: channelDescription(model.channel))
-                    InfoGridRow(label: "Security", value: readableSecurity(model.security))
+                    InfoGridRow(
+                        label: "Interface",
+                        value: model.interfaceName ?? kUnknown
+                    )
+                    InfoGridRow(
+                        label: "Channel",
+                        value: channelDescription(model.channel)
+                    )
+                    InfoGridRow(
+                        label: "Security",
+                        value: readableSecurity(model.security)
+                    )
                     InfoGridRow(label: "RSSI", value: "\(model.rssi) dBm")
                     InfoGridRow(label: "Noise", value: "\(model.noise) dBm")
-                    InfoGridRow(label: "SNR", value: "\(model.signalNoiseRatio) dB")
-                    InfoGridRow(label: "TX Rate", value: "\(Int(model.txRateMbps)) Mbps")
+                    InfoGridRow(
+                        label: "SNR",
+                        value: "\(model.signalNoiseRatio) dB"
+                    )
+                    InfoGridRow(
+                        label: "TX Rate",
+                        value: "\(Int(model.txRateMbps)) Mbps"
+                    )
                     InfoGridRow(label: "Country", value: model.countryCode)
+                    InfoGridRow(
+                        label: "Encryption",
+                        value: model.encryptionInfo
+                    )
                 }
             } else {
                 Text("No WiFi data")
