@@ -14,17 +14,17 @@ struct BasicNetView: View {
                     horizontalSpacing: 8,
                     verticalSpacing: 6
                 ) {
-                    infoRow("Local IP", model.localIp)
-                    infoRow("Subnet Mask", model.subnetMask)
-                    infoRow("Router", model.routerIp)
-                    infoRow("MTU", model.mtu)
-                    infoRow(
-                        "Public IPv4",
-                        model.publicIpV4.isEmpty ? kUnknown : model.publicIpV4
+                    InfoGridRow(label: "Local IP", value: model.localIp)
+                    InfoGridRow(label: "Subnet Mask", value: model.subnetMask)
+                    InfoGridRow(label: "Router", value: model.routerIp)
+                    InfoGridRow(label: "MTU", value: model.mtu)
+                    InfoGridRow(
+                        label: "Public IPv4",
+                        value: model.publicIpV4.isEmpty ? kUnknown : model.publicIpV4
                     )
-                    infoRow(
-                        "Public IPv6",
-                        model.publicIpV6.isEmpty ? kUnknown : model.publicIpV6
+                    InfoGridRow(
+                        label: "Public IPv6",
+                        value: model.publicIpV6.isEmpty ? kUnknown : model.publicIpV6
                     )
                 }
             } else {
@@ -33,18 +33,6 @@ struct BasicNetView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func infoRow(_ label: String, _ value: String) -> some View {
-        GridRow {
-            Text(label)
-                .fontWeight(.semibold)
-            Text(value)
-                .font(.custom(kMonoFontName, size: 12))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-        }
     }
 }
 

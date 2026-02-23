@@ -43,7 +43,8 @@ struct ToolTerminalView: View {
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
-                        copyToClipboard()
+                        copyToClipboard(fullLog)
+                        flashFeedback($isCopied)
                     } label: {
                         Label(
                             isCopied ? "Copied!" : "Copy All",
@@ -59,7 +60,8 @@ struct ToolTerminalView: View {
 
                 ToolbarItem(placement: .automatic) {
                     Button {
-                        saveToDesktop()
+                        saveLogToDesktop(content: fullLog, prefix: title)
+                        flashFeedback($isSaved)
                     } label: {
                         Label(
                             isSaved ? "Saved!" : "Save to Desktop",
@@ -87,71 +89,6 @@ struct ToolTerminalView: View {
         }
         .onDisappear {
             onDismiss()
-        }
-    }
-
-    private func copyToClipboard() {
-        // Handle Clipboard
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(fullLog, forType: .string)
-
-        // Update UI State
-        withAnimation(.spring()) {
-            isCopied = true
-        }
-
-        // Revert after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                isCopied = false
-            }
-        }
-    }
-
-    private func saveToDesktop() {
-        // Prepare sanitized file name
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime]
-        var timestamp = dateFormatter.string(from: Date())
-        timestamp =
-            timestamp
-            .replacingOccurrences(
-                of: "[:.]",
-                with: "",
-                options: .regularExpression
-            )
-        let sanitizedTitle = title.replacingOccurrences(
-            of: "[^A-Za-z0-9_-]",
-            with: "_",
-            options: .regularExpression
-        )
-        let filename = "\(sanitizedTitle)_\(timestamp).log"
-
-        // Build Desktop file URL
-        let desktopURL = FileManager.default.urls(
-            for: .desktopDirectory,
-            in: .userDomainMask
-        ).first!
-        let fileURL = desktopURL.appendingPathComponent(filename)
-
-        // Write file
-        do {
-            try fullLog.write(to: fileURL, atomically: true, encoding: .utf8)
-        } catch {
-            print("Failed to save log: \(error)")
-        }
-
-        // Update UI State
-        withAnimation(.spring()) {
-            isSaved = true
-        }
-
-        // Revert after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                isSaved = false
-            }
         }
     }
 }

@@ -15,16 +15,16 @@ struct WiFiView: View {
                     horizontalSpacing: 8,
                     verticalSpacing: 6
                 ) {
-                    infoRow("SSID", model.ssid)
-                    infoRow("BSSID", model.connectedBssid)
-                    infoRow("Interface", model.interfaceName ?? kUnknown)
-                    infoRow("Channel", channelDescription(model.channel))
-                    infoRow("Security", readableSecurity(model.security))
-                    infoRow("RSSI", "\(model.rssi) dBm")
-                    infoRow("Noise", "\(model.noise) dBm")
-                    infoRow("SNR", "\(model.signalNoiseRatio) dB")
-                    infoRow("TX Rate", "\(Int(model.txRateMbps)) Mbps")
-                    infoRow("Country", model.countryCode)
+                    InfoGridRow(label: "SSID", value: model.ssid)
+                    InfoGridRow(label: "BSSID", value: model.connectedBssid)
+                    InfoGridRow(label: "Interface", value: model.interfaceName ?? kUnknown)
+                    InfoGridRow(label: "Channel", value: channelDescription(model.channel))
+                    InfoGridRow(label: "Security", value: readableSecurity(model.security))
+                    InfoGridRow(label: "RSSI", value: "\(model.rssi) dBm")
+                    InfoGridRow(label: "Noise", value: "\(model.noise) dBm")
+                    InfoGridRow(label: "SNR", value: "\(model.signalNoiseRatio) dB")
+                    InfoGridRow(label: "TX Rate", value: "\(Int(model.txRateMbps)) Mbps")
+                    InfoGridRow(label: "Country", value: model.countryCode)
                 }
             } else {
                 Text("No WiFi data")
@@ -32,18 +32,6 @@ struct WiFiView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder
-    private func infoRow(_ label: String, _ value: String) -> some View {
-        GridRow {
-            Text(label)
-                .fontWeight(.semibold)
-            Text(value)
-                .font(.custom(kMonoFontName, size: 12))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-        }
     }
 
     private func readableSecurity(_ security: CWSecurity) -> String {

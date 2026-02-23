@@ -36,7 +36,8 @@ struct LogView: View {
                     Text("(Will exclude filters)")
                         .font(.caption)
                     Button {
-                        copyToClipboard()
+                        copyToClipboard(logText)
+                        flashFeedback($isCopied)
                     } label: {
                         Label(
                             isCopied ? "Copied!" : "Copy All",
@@ -50,7 +51,8 @@ struct LogView: View {
                     .help("Copy full log to clipboard")
                     .controlSize(.small)
                     Button {
-                        saveToDesktop()
+                        saveLogToDesktop(content: logText, prefix: "MacNetTools")
+                        flashFeedback($isSaved)
                     } label: {
                         Label(
                             isSaved ? "Saved!" : "Save to Desktop",
@@ -101,68 +103,9 @@ struct LogView: View {
         )
     }
 
-    private func copyToClipboard() {
-        // Handle Clipboard
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(joinLog(), forType: .string)
-
-        // Update UI State
-        withAnimation(.spring()) {
-            isCopied = true
-        }
-
-        // Revert after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                isCopied = false
-            }
-        }
-    }
-
-    private func saveToDesktop() {
-        // Prepare sanitized file name
-        let dateFormatter = ISO8601DateFormatter()
-        dateFormatter.formatOptions = [.withInternetDateTime]
-        var timestamp = dateFormatter.string(from: Date())
-        timestamp =
-            timestamp
-            .replacingOccurrences(
-                of: "[:.]",
-                with: "",
-                options: .regularExpression
-            )
-        let filename = "MacNetTools_\(timestamp).log"
-
-        // Build Desktop file URL
-        let desktopURL = FileManager.default.urls(
-            for: .desktopDirectory,
-            in: .userDomainMask
-        ).first!
-        let fileURL = desktopURL.appendingPathComponent(filename)
-
-        // Write file
-        do {
-            try joinLog().write(to: fileURL, atomically: true, encoding: .utf8)
-        } catch {
-            print("Failed to save log: \(error)")
-        }
-
-        // Update UI State
-        withAnimation(.spring()) {
-            isSaved = true
-        }
-
-        // Revert after a delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            withAnimation {
-                isSaved = false
-            }
-        }
-    }
-
-    private func joinLog() -> String {
-        return logViewModel.entries.map { $0.message }.joined(separator: "\n")
+    /// All log entries joined into a single string for export.
+    private var logText: String {
+        logViewModel.entries.map { $0.message }.joined(separator: "\n")
     }
 }
 
