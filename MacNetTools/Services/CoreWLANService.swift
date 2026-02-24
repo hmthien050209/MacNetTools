@@ -514,6 +514,7 @@ class CoreWLANService: @unchecked Sendable {
             ie.payload.count >= 5
         else { return nil }
 
+        // 802.11 IEs use little-endian byte order for multi-byte fields
         let stationCount =
             Int(ie.payload[0]) | (Int(ie.payload[1]) << 8)
         let utilization = Double(ie.payload[2]) / 255.0 * 100.0
@@ -542,6 +543,7 @@ class CoreWLANService: @unchecked Sendable {
             guard !seenOUIs.contains(oui) else { continue }
             seenOUIs.insert(oui)
 
+            // Reuse the BSSID vendor lookup with the OUI prefix (XX:XX:XX)
             let vendorName = await fetchVendorName(bssid: oui)
             result.append(
                 VendorSpecificIE(oui: oui, vendorName: vendorName)
