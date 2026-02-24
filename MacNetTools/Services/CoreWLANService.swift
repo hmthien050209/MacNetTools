@@ -60,10 +60,20 @@ class CoreWLANService {
                 "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
         }
 
+        // Vendor info
+        let ssid = interface.ssid() ?? kUnknown
+        let connectedBssid = interface.bssid() ?? kUnknown
+        async let fetchedVendor = fetchVendorName(bssid: connectedBssid)
+        async let fetchedAvailableBssidsWithVendors = getBSSIDsWithVendorsForSameSSID(ssid)
+
+        let (vendor, availableBssidsWithVendors) = await (
+            fetchedVendor, fetchedAvailableBssidsWithVendors
+        )
+
         return WiFiModel(
-            ssid: interface.ssid() ?? kUnknown,
-            connectedBssid: interface.bssid() ?? kUnknown,
-            vendor: await fetchVendorName(bssid: interface.bssid()),
+            ssid: ssid,
+            connectedBssid: connectedBssid,
+            vendor: vendor,
             channel: interface.wlanChannel(),
             phyMode: interface.activePHYMode(),
             security: interface.security(),
@@ -71,9 +81,7 @@ class CoreWLANService {
             noise: noise,
             signalNoiseRatio: signalNoiseRatio,
             countryCode: interface.countryCode() ?? kUnknown,
-            availableBssidsWithVendors: await getBSSIDsWithVendorsForSameSSID(
-                interface.ssid() ?? ""
-            ),
+            availableBssidsWithVendors: availableBssidsWithVendors,
             txRateMbps: interface.transmitRate(),
             interfaceName: interface.interfaceName,
             encryptionInfo: encryptionInfo ?? kUnknown,
@@ -126,7 +134,9 @@ class CoreWLANService {
                     let rssi = network.rssiValue
                     let noise = network.noiseMeasurement
                     let snr = rssi - noise
-                    results.append("\(bssid) (\(vendor), RSSI: \(rssi) dBm, Noise: \(noise) dBm, SNR: \(snr) dB")
+                    results.append(
+                        "\(bssid) (\(vendor), RSSI: \(rssi) dBm, Noise: \(noise) dBm, SNR: \(snr) dB"
+                    )
                 }
             }
 

@@ -53,7 +53,6 @@ struct ExternalToolsView: View {
                 }
             }
         }
-        .padding()
         .task { await viewModel.checkTools() }
         .sheet(item: $activeSession) { session in
             ToolTerminalView(title: session.name, stream: session.stream) {

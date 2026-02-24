@@ -21,7 +21,6 @@ struct BSSIDsWithSameSSIDView: View {
                 if let ssid = viewModel.wiFiModel?.ssid {
                     Text("BSSIDs for \"\(ssid)\"")
                         .font(.headline)
-                        .bold()
                 } else {
                     Text("No SSID detected")
                         .font(.headline)
@@ -70,7 +69,6 @@ struct BSSIDsWithSameSSIDView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
     }
 }
 
