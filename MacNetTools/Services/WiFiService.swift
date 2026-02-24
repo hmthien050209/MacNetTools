@@ -179,24 +179,34 @@ class WiFiService: @unchecked Sendable {
     /// Dynamically fetches the vendor name from a BSSID using a public API.
     func fetchVendorName(bssid: String?) async -> String {
         guard let bssid = bssid, !bssid.isEmpty else {
-            return "BSSID unknown, can't get vendor"
+            return "BSSID unknown"
         }
 
         if let cached = await vendorCache.get(bssid),
-            cached != kUnknownVendor && cached != kVendorLookupFailed
+            cached != kVendorLookupFailed
         {
             return cached
         }
 
         guard let url = URL(string: "https://api.macvendors.com/\(bssid)")
-        else { return "Invalid BSSID" }
+        else {
+            return "Invalid BSSID"
+        }
 
         do {
-            let (data, res) = try await URLSession.shared.data(from: url)
-            let name =
-                (res as? HTTPURLResponse)?.statusCode == 200
-                ? String(data: data, encoding: .utf8) ?? kUnknownVendor
-                : kUnknownVendor
+            let (data, response) = try await URLSession.shared.data(from: url)
+            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
+
+            let name: String
+            if statusCode == 200 {
+                name = String(data: data, encoding: .utf8) ?? kUnknownVendor
+            } else if statusCode == 404 {
+                // Not found
+                name = kUnknownVendor
+            } else {
+                // Other errors, don't cache
+                return kVendorLookupFailed
+            }
 
             await vendorCache.set(name, for: bssid)
             return name

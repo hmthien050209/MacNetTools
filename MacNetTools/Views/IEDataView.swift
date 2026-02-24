@@ -25,6 +25,18 @@ struct IEDataView: View {
                             bssLoad.channelUtilization
                         )
                     )
+
+                    /// Calculates the percentage of available medium time.
+                    ///
+                    /// Per IEEE Std 802.11-2020, Section 9.4.2.27 (BSS Load element):
+                    /// The "Available Admission Capacity" field is a 2-octet unsigned integer that
+                    /// indicates the remaining amount of medium time available via explicit
+                    /// admission control, in units of 32 microseconds per second.
+                    ///
+                    /// Calculation:
+                    /// 1 second = 1,000,000 microseconds.
+                    /// 1,000,000 μs / 32 μs per unit = 31,250 total units per second.
+                    /// (Raw Value / 31,250) * 100 = Percentage of available medium time.
                     InfoGridRow(
                         label: "Available Capacity",
                         value: String(
@@ -33,6 +45,7 @@ struct IEDataView: View {
                                 * 100.0
                         )
                     )
+
                     InfoGridRow(
                         label: "Stations",
                         value: "\(bssLoad.stationCount)"
@@ -42,8 +55,6 @@ struct IEDataView: View {
                 Text("No BSS Load data available")
                     .foregroundStyle(.secondary)
             }
-
-            Divider()
 
             // Vendor Specific Section
             Text("Vendor Specific")
