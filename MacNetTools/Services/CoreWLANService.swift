@@ -24,6 +24,36 @@ private struct ScannedNetworkData: Sendable {
     let informationElementData: Data?
 }
 
+    /// Built-in OUI lookup table for vendor-specific Information Elements.
+    /// Aruba Network Utility and similar tools use a local database rather than
+    /// an API to resolve vendor names from OUI prefixes.
+    private let knownOUIs: [String: String] = [
+        "00:50:F2": "Microsoft",
+        "00:0B:86": "Aruba Networks",
+        "00:03:7F": "Atheros Communications",
+        "50:6F:9A": "Wi-Fi Alliance",
+        "00:40:96": "Cisco Systems",
+        "00:10:18": "Broadcom",
+        "00:90:4C": "Epigram (Broadcom)",
+        "00:17:F2": "Apple",
+        "00:E0:4C": "Realtek Semiconductor",
+        "8C:FD:F0": "Qualcomm",
+        "00:15:6D": "Ubiquiti",
+        "00:27:22": "Ubiquiti Networks",
+        "00:0C:E7": "MediaTek",
+        "00:0C:43": "Ralink Technology",
+        "00:24:D7": "Intel Corporate",
+        "00:1A:11": "Google",
+        "00:26:86": "Quantenna",
+        "AC:85:3D": "Huawei Technologies",
+        "00:14:6C": "Netgear",
+        "00:1B:11": "D-Link",
+        "00:0F:AC": "IEEE 802.11",
+        "00:13:74": "Atheros",
+        "00:1D:6E": "Nokia",
+        "00:26:44": "Thomson Telecom",
+    ]
+
 class CoreWLANService: @unchecked Sendable {
     private let vendorCache = VendorCache()
 
@@ -59,6 +89,7 @@ class CoreWLANService: @unchecked Sendable {
         var encryptionInfo: String? = nil
         var bssLoad: BSSLoadInfo? = nil
         var vendorSpecificIEs: [VendorSpecificIE] = []
+        var secondaryChannelOffset: String? = nil
 
         if let currentData = scannedNetworks.first(where: {
             $0.bssid == connectedBssid
@@ -80,7 +111,8 @@ class CoreWLANService: @unchecked Sendable {
             }
 
             bssLoad = extractBSSLoad(from: ies)
-            vendorSpecificIEs = await extractVendorSpecificIEs(from: ies)
+            vendorSpecificIEs = extractVendorSpecificIEs(from: ies)
+            secondaryChannelOffset = extractSecondaryChannelOffset(from: ies)
         }
 
         // Async vendor lookups (non-blocking, fine on cooperative pool)
@@ -109,6 +141,7 @@ class CoreWLANService: @unchecked Sendable {
             encryptionInfo: encryptionInfo ?? kUnknown,
             bssLoad: bssLoad,
             vendorSpecificIEs: vendorSpecificIEs,
+            secondaryChannelOffset: secondaryChannelOffset,
         )
     }
 
@@ -528,10 +561,29 @@ class CoreWLANService: @unchecked Sendable {
         )
     }
 
-    /// Extracts unique Vendor Specific IEs (IE ID 221) with resolved vendor names.
+    /// Extracts the secondary channel offset from HT Operation IE (ID 61).
+    private func extractSecondaryChannelOffset(
+        from ies: [(id: UInt8, payload: Data)]
+    ) -> String? {
+        // HT Operation IE: byte 0 = primary channel, byte 1 bits 0-1 = secondary channel offset
+        guard let ie = ies.first(where: { $0.id == 61 }),
+            ie.payload.count >= 2
+        else { return nil }
+
+        let offset = ie.payload[1] & 0x03
+        switch offset {
+        case 0: return "None"
+        case 1: return "Above"
+        case 3: return "Below"
+        default: return "Reserved"
+        }
+    }
+
+    /// Extracts unique Vendor Specific IEs (IE ID 221) with resolved vendor names
+    /// using a built-in OUI database (like Aruba Network Utility).
     private func extractVendorSpecificIEs(
         from ies: [(id: UInt8, payload: Data)]
-    ) async -> [VendorSpecificIE] {
+    ) -> [VendorSpecificIE] {
         var result: [VendorSpecificIE] = []
         var seenOUIs: Set<String> = []
 
@@ -543,8 +595,7 @@ class CoreWLANService: @unchecked Sendable {
             guard !seenOUIs.contains(oui) else { continue }
             seenOUIs.insert(oui)
 
-            // Reuse the BSSID vendor lookup with the OUI prefix (XX:XX:XX)
-            let vendorName = await fetchVendorName(bssid: oui)
+            let vendorName = knownOUIs[oui] ?? oui
             result.append(
                 VendorSpecificIE(oui: oui, vendorName: vendorName)
             )

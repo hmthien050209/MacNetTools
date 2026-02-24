@@ -24,7 +24,11 @@ struct IEDataView: View {
                     )
                     InfoGridRow(
                         label: "Available Capacity",
-                        value: "\(bssLoad.availableCapacity)"
+                        value: String(
+                            format: "%.1f%%",
+                            Double(bssLoad.availableCapacity) / 31250.0
+                                * 100.0
+                        )
                     )
                     InfoGridRow(
                         label: "Stations",

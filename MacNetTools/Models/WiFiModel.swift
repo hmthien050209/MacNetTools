@@ -36,6 +36,8 @@ struct WiFiModel {
     var bssLoad: BSSLoadInfo?
     /// Decoded vendor-specific Information Elements (IE 221).
     var vendorSpecificIEs: [VendorSpecificIE]
+    /// Secondary channel offset from HT Operation IE (e.g. "Above", "Below", "None").
+    var secondaryChannelOffset: String?
 }
 
 struct Ipify: Decodable {

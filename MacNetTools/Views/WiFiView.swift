@@ -26,6 +26,12 @@ struct WiFiView: View {
                         label: "Channel",
                         value: channelDescription(model.channel)
                     )
+                    if let sco = model.secondaryChannelOffset {
+                        InfoGridRow(
+                            label: "2nd Ch Offset",
+                            value: sco
+                        )
+                    }
                     InfoGridRow(
                         label: "Security",
                         value: readableSecurity(model.security)
