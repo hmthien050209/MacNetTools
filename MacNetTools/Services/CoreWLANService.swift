@@ -55,24 +55,32 @@ class CoreWLANService: @unchecked Sendable {
         // to avoid blocking the Swift cooperative thread pool
         let scannedNetworks = await scanNetworksInBackground(ssid: ssid)
 
-        // Extract encryption info from scan results
+        // Parse Information Elements once for the connected BSSID
         var encryptionInfo: String? = nil
+        var bssLoad: BSSLoadInfo? = nil
+        var vendorSpecificIEs: [VendorSpecificIE] = []
+
         if let currentData = scannedNetworks.first(where: {
             $0.bssid == connectedBssid
         }),
-            let ieData = currentData.informationElementData,
-            let securityInfo = extractCipherInfo(from: ieData)
+            let ieData = currentData.informationElementData
         {
-            let group = securityInfo.group ?? "Unknown"
-            let pairwise =
-                securityInfo.pairwise.isEmpty
-                ? "None" : securityInfo.pairwise.joined(separator: ", ")
-            let akms =
-                securityInfo.akms.isEmpty
-                ? "None" : securityInfo.akms.joined(separator: ", ")
+            let ies = parseInformationElements(ieData)
 
-            encryptionInfo =
-                "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
+            if let securityInfo = extractCipherInfo(from: ies) {
+                let group = securityInfo.group ?? "Unknown"
+                let pairwise =
+                    securityInfo.pairwise.isEmpty
+                    ? "None" : securityInfo.pairwise.joined(separator: ", ")
+                let akms =
+                    securityInfo.akms.isEmpty
+                    ? "None" : securityInfo.akms.joined(separator: ", ")
+                encryptionInfo =
+                    "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
+            }
+
+            bssLoad = extractBSSLoad(from: ies)
+            vendorSpecificIEs = await extractVendorSpecificIEs(from: ies)
         }
 
         // Async vendor lookups (non-blocking, fine on cooperative pool)
@@ -99,6 +107,8 @@ class CoreWLANService: @unchecked Sendable {
             txRateMbps: txRate,
             interfaceName: ifName,
             encryptionInfo: encryptionInfo ?? kUnknown,
+            bssLoad: bssLoad,
+            vendorSpecificIEs: vendorSpecificIEs,
         )
     }
 
@@ -335,11 +345,9 @@ class CoreWLANService: @unchecked Sendable {
 
     // MARK: - WiFi Security Stuff
 
-    private func extractCipherInfo(from ieData: Data) -> (
+    private func extractCipherInfo(from ies: [(id: UInt8, payload: Data)]) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
-        let ies = parseInformationElements(ieData)
-
         // Priority 1: Modern RSN (WPA2/WPA3) - ID 48
         if let rsn = ies.first(where: { $0.id == 48 }) {
             // RSN payload: Bytes 0-1 are Version. Group Cipher starts at Byte 2.
@@ -494,6 +502,52 @@ class CoreWLANService: @unchecked Sendable {
         }
 
         return (group, pairwise, akms)
+    }
+
+    // MARK: - IE Data Extraction
+
+    /// Extracts BSS Load element (IE ID 11) from pre-parsed Information Elements.
+    private func extractBSSLoad(from ies: [(id: UInt8, payload: Data)])
+        -> BSSLoadInfo?
+    {
+        guard let ie = ies.first(where: { $0.id == 11 }),
+            ie.payload.count >= 5
+        else { return nil }
+
+        let stationCount =
+            Int(ie.payload[0]) | (Int(ie.payload[1]) << 8)
+        let utilization = Double(ie.payload[2]) / 255.0 * 100.0
+        let capacity =
+            Int(ie.payload[3]) | (Int(ie.payload[4]) << 8)
+
+        return BSSLoadInfo(
+            stationCount: stationCount,
+            channelUtilization: utilization,
+            availableCapacity: capacity
+        )
+    }
+
+    /// Extracts unique Vendor Specific IEs (IE ID 221) with resolved vendor names.
+    private func extractVendorSpecificIEs(
+        from ies: [(id: UInt8, payload: Data)]
+    ) async -> [VendorSpecificIE] {
+        var result: [VendorSpecificIE] = []
+        var seenOUIs: Set<String> = []
+
+        for ie in ies where ie.id == 221 && ie.payload.count >= 3 {
+            let oui = String(
+                format: "%02X:%02X:%02X",
+                ie.payload[0], ie.payload[1], ie.payload[2]
+            )
+            guard !seenOUIs.contains(oui) else { continue }
+            seenOUIs.insert(oui)
+
+            let vendorName = await fetchVendorName(bssid: oui)
+            result.append(
+                VendorSpecificIE(oui: oui, vendorName: vendorName)
+            )
+        }
+        return result
     }
 
     // MARK: - Vendor specific info

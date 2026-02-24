@@ -65,6 +65,7 @@ struct MainView: View {
                     VStack(spacing: 20) {
                         LogView(logViewModel: logViewModel)
                         BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
+                        IEDataView(viewModel: wiFiViewModel)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
