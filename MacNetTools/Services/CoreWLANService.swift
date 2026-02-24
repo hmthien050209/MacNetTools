@@ -15,7 +15,16 @@ actor VendorCache {
     }
 }
 
-class CoreWLANService {
+/// Holds data extracted from a CWNetwork scan result, using only Sendable types
+/// so it can safely cross thread boundaries.
+private struct ScannedNetworkData: Sendable {
+    let bssid: String
+    let rssi: Int
+    let noise: Int
+    let informationElementData: Data?
+}
+
+class CoreWLANService: @unchecked Sendable {
     private let vendorCache = VendorCache()
 
     func getWiFiModel(interfaceName: String? = nil) async -> WiFiModel? {
@@ -29,25 +38,31 @@ class CoreWLANService {
             return nil
         }
 
-        // Additional calculations
+        // Read fast CWInterface properties (lightweight, OK on cooperative pool)
         let rssi = interface.rssiValue()
         let noise = interface.noiseMeasurement()
         let signalNoiseRatio = rssi - noise
+        let ssid = interface.ssid() ?? kUnknown
+        let connectedBssid = interface.bssid() ?? kUnknown
+        let channel = interface.wlanChannel()
+        let phyMode = interface.activePHYMode()
+        let security = interface.security()
+        let countryCode = interface.countryCode() ?? kUnknown
+        let txRate = interface.transmitRate()
+        let ifName = interface.interfaceName
 
-        // WiFi encryption info
+        // Run the expensive scanForNetworks on a background GCD queue
+        // to avoid blocking the Swift cooperative thread pool
+        let scannedNetworks = await scanNetworksInBackground(ssid: ssid)
+
+        // Extract encryption info from scan results
         var encryptionInfo: String? = nil
-
-        if let ssid = interface.ssid(),
-            let iface = CWWiFiClient.shared().interface(),
-            let networks = try? iface.scanForNetworks(
-                withSSID: ssid.data(using: .utf8)
-            ),
-            let currentNet = networks.first(where: {
-                $0.bssid == interface.bssid()
-            }),
-            let securityInfo = extractCipherInfo(from: currentNet)
+        if let currentData = scannedNetworks.first(where: {
+            $0.bssid == connectedBssid
+        }),
+            let ieData = currentData.informationElementData,
+            let securityInfo = extractCipherInfo(from: ieData)
         {
-            // Safely unwrap and format the arrays
             let group = securityInfo.group ?? "Unknown"
             let pairwise =
                 securityInfo.pairwise.isEmpty
@@ -60,11 +75,10 @@ class CoreWLANService {
                 "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
         }
 
-        // Vendor info
-        let ssid = interface.ssid() ?? kUnknown
-        let connectedBssid = interface.bssid() ?? kUnknown
+        // Async vendor lookups (non-blocking, fine on cooperative pool)
         async let fetchedVendor = fetchVendorName(bssid: connectedBssid)
-        async let fetchedAvailableBssidsWithVendors = getBSSIDsWithVendorsForSameSSID(ssid)
+        async let fetchedAvailableBssidsWithVendors =
+            buildBSSIDsWithVendors(from: scannedNetworks)
 
         let (vendor, availableBssidsWithVendors) = await (
             fetchedVendor, fetchedAvailableBssidsWithVendors
@@ -74,16 +88,16 @@ class CoreWLANService {
             ssid: ssid,
             connectedBssid: connectedBssid,
             vendor: vendor,
-            channel: interface.wlanChannel(),
-            phyMode: interface.activePHYMode(),
-            security: interface.security(),
+            channel: channel,
+            phyMode: phyMode,
+            security: security,
             rssi: rssi,
             noise: noise,
             signalNoiseRatio: signalNoiseRatio,
-            countryCode: interface.countryCode() ?? kUnknown,
+            countryCode: countryCode,
             availableBssidsWithVendors: availableBssidsWithVendors,
-            txRateMbps: interface.transmitRate(),
-            interfaceName: interface.interfaceName,
+            txRateMbps: txRate,
+            interfaceName: ifName,
             encryptionInfo: encryptionInfo ?? kUnknown,
         )
     }
@@ -101,50 +115,81 @@ class CoreWLANService {
             return nil
         }
 
-        let addrInfo = getInterfaceAddressInfo(for: name)
-        let networkDetails = getSystemConfigurationInfo(for: name)
+        // Move blocking SystemConfiguration and ifaddrs work to a background
+        // GCD queue to avoid blocking the Swift cooperative thread pool
+        let (addrInfo, networkDetails) = await withCheckedContinuation {
+            (continuation: CheckedContinuation<
+                (
+                    (ip: String?, subnet: String?),
+                    (router: String?, mtu: String)
+                ), Never
+            >) in
+            DispatchQueue.global(qos: .userInitiated).async { [self] in
+                let addr = self.getInterfaceAddressInfo(for: name)
+                let details = self.getSystemConfigurationInfo(for: name)
+                continuation.resume(returning: (addr, details))
+            }
+        }
+
+        // Run public IP lookups in parallel (non-blocking async network calls)
+        async let ipV4 = getPublicIp(apiUrl: kIpifyV4Url)
+        async let ipV6 = getPublicIp(apiUrl: kIpifyV6Url)
 
         return BasicNetModel(
             mtu: networkDetails.mtu,
             localIp: addrInfo.ip ?? "0.0.0.0",
             routerIp: networkDetails.router ?? "0.0.0.0",
             subnetMask: addrInfo.subnet ?? "255.255.255.0",
-            publicIpV4: await getPublicIp(apiUrl: kIpifyV4Url) ?? "",
-            publicIpV6: await getPublicIp(apiUrl: kIpifyV6Url) ?? "",
+            publicIpV4: await ipV4 ?? "",
+            publicIpV6: await ipV6 ?? "",
         )
     }
 
     // MARK: - Helpers
 
-    // Finds all BSSIDs for the same SSID as the connected network
-    private func getBSSIDsWithVendorsForSameSSID(_ ssid: String) async
-        -> [String]
+    /// Runs the expensive scanForNetworks on a background GCD queue,
+    /// extracting only Sendable data from CWNetwork objects.
+    private func scanNetworksInBackground(ssid: String) async
+        -> [ScannedNetworkData]
     {
-        guard let iface = CWWiFiClient.shared().interface() else { return [] }
-
-        do {
-            let networks = try iface.scanForNetworks(
-                withSSID: ssid.data(using: .utf8)
-            )
-            var results: [String] = []
-
-            for network in networks {
-                if let bssid = network.bssid {
-                    let vendor = await fetchVendorName(bssid: bssid)
-                    let rssi = network.rssiValue
-                    let noise = network.noiseMeasurement
-                    let snr = rssi - noise
-                    results.append(
-                        "\(bssid) (\(vendor), RSSI: \(rssi) dBm, Noise: \(noise) dBm, SNR: \(snr) dB"
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                guard let iface = CWWiFiClient.shared().interface(),
+                    let ssidData = ssid.data(using: .utf8),
+                    let networks = try? iface.scanForNetworks(
+                        withSSID: ssidData
+                    )
+                else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                let results = networks.map { network in
+                    ScannedNetworkData(
+                        bssid: network.bssid ?? "",
+                        rssi: network.rssiValue,
+                        noise: network.noiseMeasurement,
+                        informationElementData: network
+                            .informationElementData
                     )
                 }
+                continuation.resume(returning: results)
             }
-
-            return results
-        } catch {
-            print("Scan failed: \(error.localizedDescription)")
-            return []
         }
+    }
+
+    /// Builds BSSID display strings with vendor info from pre-scanned data.
+    private func buildBSSIDsWithVendors(
+        from scannedNetworks: [ScannedNetworkData]
+    ) async -> [String] {
+        var results: [String] = []
+        for data in scannedNetworks where !data.bssid.isEmpty {
+            let vendor = await fetchVendorName(bssid: data.bssid)
+            let snr = data.rssi - data.noise
+            results.append(
+                "\(data.bssid) (\(vendor), RSSI: \(data.rssi) dBm, Noise: \(data.noise) dBm, SNR: \(snr) dB)"
+            )
+        }
+        return results
     }
 
     /// Get our public IP from the specified API provider (via API URL)
@@ -290,11 +335,10 @@ class CoreWLANService {
 
     // MARK: - WiFi Security Stuff
 
-    private func extractCipherInfo(from network: CWNetwork) -> (
+    private func extractCipherInfo(from ieData: Data) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
-        guard let ie = network.informationElementData else { return nil }
-        let ies = parseInformationElements(ie)
+        let ies = parseInformationElements(ieData)
 
         // Priority 1: Modern RSN (WPA2/WPA3) - ID 48
         if let rsn = ies.first(where: { $0.id == 48 }) {
