@@ -8,7 +8,8 @@ import SystemConfiguration
 /// contexts without blocking the cooperative thread pool.
 class NetworkService: @unchecked Sendable {
 
-    func getBasicNetModel(interfaceName: String? = nil) async -> BasicNetModel? {
+    func getBasicNetModel(interfaceName: String? = nil) async -> BasicNetModel?
+    {
         // Resolve the interface name: use the supplied value, or fall back to
         // the primary interface reported by SystemConfiguration.
         let name: String
@@ -59,11 +60,16 @@ class NetworkService: @unchecked Sendable {
     private func primaryInterfaceName() -> String? {
         guard
             let store = SCDynamicStoreCreate(
-                nil, "MacNetTools" as CFString, nil, nil)
+                nil,
+                "MacNetTools" as CFString,
+                nil,
+                nil
+            )
         else { return nil }
 
         if let dict = SCDynamicStoreCopyValue(
-            store, "State:/Network/Global/IPv4" as CFString
+            store,
+            "State:/Network/Global/IPv4" as CFString
         ) as? [String: Any],
             let iface = dict["PrimaryInterface"] as? String
         {
@@ -119,7 +125,8 @@ class NetworkService: @unchecked Sendable {
 
         // Get MTU for the specific interface
         guard
-            let interfaces = SCNetworkInterfaceCopyAll() as? [SCNetworkInterface]
+            let interfaces = SCNetworkInterfaceCopyAll()
+                as? [SCNetworkInterface]
         else {
             return (router, mtu)  // Safely fallback to returning what we have so far
         }

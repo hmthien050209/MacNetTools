@@ -81,12 +81,15 @@ class WiFiService: @unchecked Sendable {
                 let akms =
                     securityInfo.akms.isEmpty
                     ? "None" : securityInfo.akms.joined(separator: ", ")
-                encryptionInfo = "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
+                encryptionInfo =
+                    "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
             }
 
             bssLoad = WiFiIEParser.extractBSSLoad(from: ies)
             vendorSpecificIEs = WiFiIEParser.extractVendorSpecificIEs(from: ies)
-            secondaryChannelOffset = WiFiIEParser.extractSecondaryChannelOffset(from: ies)
+            secondaryChannelOffset = WiFiIEParser.extractSecondaryChannelOffset(
+                from: ies
+            )
             secondaryChannels = WiFiIEParser.extractSecondaryChannels(
                 primaryChannel: primaryChannelNumber,
                 ies: ies
@@ -95,7 +98,9 @@ class WiFiService: @unchecked Sendable {
 
         // Async vendor lookups (non-blocking, fine on cooperative pool)
         async let fetchedVendor = fetchVendorName(bssid: connectedBssid)
-        async let fetchedAvailableBssidsWithVendors = buildBSSIDsWithVendors(from: scannedNetworks)
+        async let fetchedAvailableBssidsWithVendors = buildBSSIDsWithVendors(
+            from: scannedNetworks
+        )
 
         let (vendor, availableBssidsWithVendors) = await (
             fetchedVendor, fetchedAvailableBssidsWithVendors
@@ -127,12 +132,16 @@ class WiFiService: @unchecked Sendable {
 
     /// Runs the expensive scanForNetworks on a background GCD queue,
     /// extracting only Sendable data from CWNetwork objects.
-    private func scanNetworksInBackground(ssid: String) async -> [ScannedNetworkData] {
+    private func scanNetworksInBackground(ssid: String) async
+        -> [ScannedNetworkData]
+    {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 guard let iface = CWWiFiClient.shared().interface(),
                     let ssidData = ssid.data(using: .utf8),
-                    let networks = try? iface.scanForNetworks(withSSID: ssidData)
+                    let networks = try? iface.scanForNetworks(
+                        withSSID: ssidData
+                    )
                 else {
                     continuation.resume(returning: [])
                     return
@@ -151,7 +160,9 @@ class WiFiService: @unchecked Sendable {
     }
 
     /// Builds BSSID display strings with vendor info from pre-scanned data.
-    private func buildBSSIDsWithVendors(from scannedNetworks: [ScannedNetworkData]) async -> [String] {
+    private func buildBSSIDsWithVendors(
+        from scannedNetworks: [ScannedNetworkData]
+    ) async -> [String] {
         var results: [String] = []
         for data in scannedNetworks where !data.bssid.isEmpty {
             let vendor = await fetchVendorName(bssid: data.bssid)

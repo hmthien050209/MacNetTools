@@ -35,7 +35,9 @@ enum WiFiIEParser {
 
     // MARK: - Top-level parsers
 
-    static func parseInformationElements(_ ieData: Data) -> [(id: UInt8, payload: Data)] {
+    static func parseInformationElements(_ ieData: Data) -> [(
+        id: UInt8, payload: Data
+    )] {
         var result: [(UInt8, Data)] = []
         var i = 0
         while i + 1 < ieData.count {
@@ -72,7 +74,9 @@ enum WiFiIEParser {
     }
 
     /// Extracts BSS Load element (IE ID 11) from pre-parsed Information Elements.
-    static func extractBSSLoad(from ies: [(id: UInt8, payload: Data)]) -> BSSLoadInfo? {
+    static func extractBSSLoad(from ies: [(id: UInt8, payload: Data)])
+        -> BSSLoadInfo?
+    {
         guard let ie = ies.first(where: { $0.id == 11 }),
             ie.payload.count >= 5
         else { return nil }
@@ -90,7 +94,9 @@ enum WiFiIEParser {
     }
 
     /// Extracts the secondary channel offset from HT Operation IE (ID 61).
-    static func extractSecondaryChannelOffset(from ies: [(id: UInt8, payload: Data)]) -> String? {
+    static func extractSecondaryChannelOffset(
+        from ies: [(id: UInt8, payload: Data)]
+    ) -> String? {
         // HT Operation IE: byte 0 = primary channel, byte 1 bits 0-1 = secondary channel offset
         guard let ie = ies.first(where: { $0.id == 61 }),
             ie.payload.count >= 2
@@ -114,7 +120,8 @@ enum WiFiIEParser {
         var channels: [Int] = []
 
         // Priority 1: VHT Operation IE (802.11ac for 80MHz, 160MHz, 80+80MHz)
-        if let vht = ies.first(where: { $0.id == 192 }), vht.payload.count >= 3 {
+        if let vht = ies.first(where: { $0.id == 192 }), vht.payload.count >= 3
+        {
             let width = vht.payload[0]
             let center1 = Int(vht.payload[1])
             let center2 = Int(vht.payload[2])
@@ -165,7 +172,9 @@ enum WiFiIEParser {
 
     /// Extracts unique Vendor Specific IEs (IE ID 221) with resolved vendor names
     /// using a built-in OUI database (like Aruba Network Utility).
-    static func extractVendorSpecificIEs(from ies: [(id: UInt8, payload: Data)]) -> [VendorSpecificIE] {
+    static func extractVendorSpecificIEs(from ies: [(id: UInt8, payload: Data)])
+        -> [VendorSpecificIE]
+    {
         var result: [VendorSpecificIE] = []
         var seenOUIs: Set<String> = []
 
@@ -188,7 +197,10 @@ enum WiFiIEParser {
     // MARK: - Private helpers
 
     /// Extracts Group Cipher, Pairwise Ciphers, and AKMs starting from a specific byte offset.
-    private static func parseSecurityStructure(payload: Data, baseOffset: Int) -> (
+    nonisolated private static func parseSecurityStructure(
+        payload: Data,
+        baseOffset: Int
+    ) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
         // Need at least 4 bytes for the Group cipher (3 for OUI, 1 for Type)
@@ -205,7 +217,10 @@ enum WiFiIEParser {
         var offset = baseOffset + 4
 
         // Helper function to extract lists of security suites (Pairwise ciphers or AKMs)
-        func extractSecuritySuites(count: Int, nameResolver: ([UInt8], UInt8) -> String) -> [String] {
+        func extractSecuritySuites(
+            count: Int,
+            nameResolver: ([UInt8], UInt8) -> String
+        ) -> [String] {
             var suites: [String] = []
             for _ in 0..<count {
                 guard offset + 3 < payload.count else { break }
@@ -222,15 +237,20 @@ enum WiFiIEParser {
         // 2. Parse Pairwise Ciphers
         var pairwise: [String] = []
         if offset + 1 < payload.count {
-            let pairCount = Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
+            let pairCount =
+                Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
             offset += 2
-            pairwise = extractSecuritySuites(count: pairCount, nameResolver: cipherName)
+            pairwise = extractSecuritySuites(
+                count: pairCount,
+                nameResolver: cipherName
+            )
         }
 
         // 3. Parse AKMs
         var akms: [String] = []
         if offset + 1 < payload.count {
-            let akmCount = Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
+            let akmCount =
+                Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
             offset += 2
             akms = extractSecuritySuites(count: akmCount, nameResolver: akmName)
         }
@@ -240,7 +260,9 @@ enum WiFiIEParser {
 
     // MARK: - OUI translators
 
-    private static func cipherName(_ oui: [UInt8], _ type: UInt8) -> String {
+    nonisolated private static func cipherName(_ oui: [UInt8], _ type: UInt8)
+        -> String
+    {
         if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
             switch type {
             case 1: return "WEP-40"
@@ -262,10 +284,18 @@ enum WiFiIEParser {
             default: return "WPA-Cipher-\(type)"
             }
         }
-        return String(format: "%02X:%02X:%02X:%02X", oui[0], oui[1], oui[2], type)
+        return String(
+            format: "%02X:%02X:%02X:%02X",
+            oui[0],
+            oui[1],
+            oui[2],
+            type
+        )
     }
 
-    private static func akmName(_ oui: [UInt8], _ type: UInt8) -> String {
+    nonisolated private static func akmName(_ oui: [UInt8], _ type: UInt8)
+        -> String
+    {
         if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
             switch type {
             case 1: return "802.1X (EAP)"
@@ -287,6 +317,12 @@ enum WiFiIEParser {
             default: return "WPA-AKM-\(type)"
             }
         }
-        return String(format: "%02X:%02X:%02X:%02X", oui[0], oui[1], oui[2], type)
+        return String(
+            format: "%02X:%02X:%02X:%02X",
+            oui[0],
+            oui[1],
+            oui[2],
+            type
+        )
     }
 }
