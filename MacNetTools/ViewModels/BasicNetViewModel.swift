@@ -5,13 +5,13 @@ import Foundation
 class BasicNetViewModel {
     var basicNetModel: BasicNetModel?
 
-    private let coreWlanService = CoreWLANService()
+    private let networkService = NetworkService()
     private let locationPermissionService = LocationPermissionService()
 
     @discardableResult
     func updateBasicNet() async -> BasicNetModel? {
         locationPermissionService.requestPermission()
-        basicNetModel = await coreWlanService.getBasicNetModel()
+        basicNetModel = await networkService.getBasicNetModel()
         return basicNetModel
     }
 }

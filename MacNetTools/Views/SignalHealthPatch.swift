@@ -24,7 +24,7 @@ enum SignalHealth {
     }
 }
 
-struct SignalHealthView: View {
+struct SignalHealthPatch: View {
     let health: SignalHealth
     let value: String
 

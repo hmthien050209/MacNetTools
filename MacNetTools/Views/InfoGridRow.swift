@@ -13,7 +13,7 @@ struct InfoGridRow<ValueContent: View>: View {
             .font(.custom(kMonoFontName, size: kSpacing))
     }
 
-    // Initializer for custom views (like SignalHealthView)
+    // Initializer for custom views (like SignalHealthPatch)
     init(label: String, @ViewBuilder valueView: () -> ValueContent) {
         self.label = label
         self.valueView = valueView()

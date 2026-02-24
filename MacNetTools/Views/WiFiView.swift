@@ -28,12 +28,12 @@ struct WiFiView: View {
                     )
                     if let sco = model.secondaryChannelOffset {
                         InfoGridRow(
-                            label: "2nd Ch Offset",
+                            label: "Secondary Channel Offset",
                             value: sco
                         )
                     }
                     InfoGridRow(
-                        label: "2nd Ch",
+                        label: "Secondary Channels",
                         value: model.secondaryChannels.map { String($0) }
                             .joined(separator: ", ")
                     )
@@ -43,7 +43,7 @@ struct WiFiView: View {
                     )
 
                     InfoGridRow(label: "RSSI") {
-                        SignalHealthView(
+                        SignalHealthPatch(
                             health: health(forRssi: model.rssi),
                             value: "\(model.rssi) dBm"
                         )
@@ -52,7 +52,7 @@ struct WiFiView: View {
                     InfoGridRow(label: "Noise", value: "\(model.noise) dBm")
 
                     InfoGridRow(label: "SNR") {
-                        SignalHealthView(
+                        SignalHealthPatch(
                             health: health(forSnr: model.signalNoiseRatio),
                             value: "\(model.signalNoiseRatio) dB"
                         )

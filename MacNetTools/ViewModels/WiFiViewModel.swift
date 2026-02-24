@@ -5,13 +5,13 @@ import Foundation
 class WiFiViewModel {
     var wiFiModel: WiFiModel?
 
-    private let coreWlanService = CoreWLANService()
+    private let wiFiService = WiFiService()
     private let locationPermissionService = LocationPermissionService()
 
     @discardableResult
     func updateWiFi() async -> WiFiModel? {
         locationPermissionService.requestPermission()
-        let newModel = await coreWlanService.getWiFiModel()
+        let newModel = await wiFiService.getWiFiModel()
         
         self.wiFiModel = newModel
         
