@@ -6,3 +6,7 @@ struct BasicNetModel {
     var publicIpV4: String
     var publicIpV6: String
 }
+
+struct Ipify: Decodable {
+    var ip: String
+}

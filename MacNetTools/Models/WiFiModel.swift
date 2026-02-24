@@ -41,7 +41,3 @@ struct WiFiModel {
     /// List of computed secondary channels derived from HT/VHT Operation IEs.
     var secondaryChannels: [Int]
 }
-
-struct Ipify: Decodable {
-    var ip: String
-}

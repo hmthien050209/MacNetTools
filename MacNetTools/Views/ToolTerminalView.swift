@@ -6,8 +6,6 @@ struct ToolTerminalView: View {
     var onDismiss: () -> Void
 
     @State private var outputLines: [String] = []
-    @State private var isCopied = false
-    @State private var isSaved = false
 
     private var fullLog: String {
         outputLines.joined(separator: "\n")
@@ -44,36 +42,20 @@ struct ToolTerminalView: View {
             .navigationTitle(title)
             .toolbar {
                 ToolbarItem(placement: .automatic) {
-                    Button {
-                        copyToClipboard(fullLog)
-                        flashFeedback($isCopied)
-                    } label: {
-                        Label(
-                            isCopied ? "Copied!" : "Copy All",
-                            systemImage: isCopied
-                                ? "checkmark.circle.fill" : "doc.on.doc"
-                        )
-                        .contentTransition(.symbolEffect(.replace))
-                    }
-                    .foregroundStyle(isCopied ? .secondary : .primary)
-                    .disabled(outputLines.isEmpty || isCopied)
-                    .help("Copy full log to clipboard")
+                    CopyButton(
+                        text: fullLog,
+                        isDisabled: outputLines.isEmpty,
+                        helpText: "Copy full log to clipboard"
+                    )
                 }
 
                 ToolbarItem(placement: .automatic) {
-                    Button {
-                        saveLogToDesktop(content: fullLog, prefix: title)
-                        flashFeedback($isSaved)
-                    } label: {
-                        Label(
-                            isSaved ? "Saved!" : "Save to Desktop",
-                            systemImage: isSaved
-                                ? "checkmark.circle.fill"
-                                : "square.and.arrow.down"
-                        )
-                    }
-                    .disabled(outputLines.isEmpty)
-                    .help("Save full log as a .log file on your Desktop")
+                    SaveToDesktopButton(
+                        content: fullLog,
+                        prefix: title,
+                        isDisabled: outputLines.isEmpty,
+                        helpText: "Save full log as a .log file on your Desktop"
+                    )
                 }
 
                 ToolbarItem(placement: .automatic) {

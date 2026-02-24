@@ -4,7 +4,6 @@ import SwiftUI
 
 struct BSSIDsWithSameSSIDView: View {
     var viewModel: WiFiViewModel
-    @State private var isSaved = false
 
     private var bssidsWithVendors: [String] {
         viewModel.wiFiModel?.availableBssidsWithVendors ?? []
@@ -35,25 +34,11 @@ struct BSSIDsWithSameSSIDView: View {
                         helpText:
                             "Copy all BSSIDs and related info to clipboard"
                     )
-                    Button {
-                        saveLogToDesktop(
-                            content: joinedText,
-                            prefix:
-                                "BSSIDs_\(viewModel.wiFiModel?.ssid ?? "unknown")"
-                        )
-                        flashFeedback($isSaved)
-                    } label: {
-                        Label(
-                            isSaved ? "Saved!" : "Save to Desktop",
-                            systemImage: isSaved
-                                ? "checkmark.circle.fill"
-                                : "square.and.arrow.down"
-                        )
-                    }
-                    .help(
-                        "Save all BSSIDs and related info as a .log file on your Desktop"
+                    SaveToDesktopButton(
+                        content: joinedText,
+                        prefix: "BSSIDs_\(viewModel.wiFiModel?.ssid ?? "unknown")",
+                        helpText: "Save all BSSIDs and related info as a .log file on your Desktop"
                     )
-                    .controlSize(.small)
                 }
             }
 

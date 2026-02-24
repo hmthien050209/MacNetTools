@@ -3,7 +3,6 @@ import SwiftUI
 struct LogView: View {
     var logViewModel: LogViewModel
     @State private var searchText = ""
-    @State private var isSaved = false
 
     var body: some View {
         let filtered = logViewModel.filteredEntries(searchText: searchText)
@@ -39,23 +38,12 @@ struct LogView: View {
                         isDisabled: filtered.isEmpty,
                         helpText: "Copy full log to clipboard"
                     )
-                    Button {
-                        saveLogToDesktop(
-                            content: logText,
-                            prefix: "MacNetTools"
-                        )
-                        flashFeedback($isSaved)
-                    } label: {
-                        Label(
-                            isSaved ? "Saved!" : "Save to Desktop",
-                            systemImage: isSaved
-                                ? "checkmark.circle.fill"
-                                : "square.and.arrow.down"
-                        )
-                    }
-                    .disabled(filtered.isEmpty)
-                    .help("Save full log as a .log file on your Desktop")
-                    .controlSize(.small)
+                    SaveToDesktopButton(
+                        content: logText,
+                        prefix: "MacNetTools",
+                        isDisabled: filtered.isEmpty,
+                        helpText: "Save full log as a .log file on your Desktop"
+                    )
                 }
             }
 
