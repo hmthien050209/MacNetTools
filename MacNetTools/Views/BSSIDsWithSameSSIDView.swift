@@ -19,7 +19,7 @@ struct BSSIDsWithSameSSIDView: View {
             // Header
             HStack {
                 if let ssid = viewModel.wiFiModel?.ssid {
-                    Text("Other BSSIDs for \"\(ssid)\"")
+                    Text("BSSIDs for \"\(ssid)\"")
                         .font(.headline)
                         .bold()
                 } else {
@@ -33,7 +33,8 @@ struct BSSIDsWithSameSSIDView: View {
                 if !bssidsWithVendors.isEmpty {
                     CopyButton(
                         text: joinedText,
-                        helpText: "Copy all BSSIDs to clipboard"
+                        helpText:
+                            "Copy all BSSIDs and related info to clipboard"
                     )
                     Button {
                         saveLogToDesktop(
@@ -50,14 +51,16 @@ struct BSSIDsWithSameSSIDView: View {
                                 : "square.and.arrow.down"
                         )
                     }
-                    .help("Save all BSSIDs as a .log file on your Desktop")
+                    .help(
+                        "Save all BSSIDs and related info as a .log file on your Desktop"
+                    )
                     .controlSize(.small)
                 }
             }
 
             // Scrollable content
             if bssidsWithVendors.isEmpty {
-                Text("No other BSSIDs detected for this SSID")
+                Text("No BSSIDs detected for this SSID")
                     .foregroundStyle(.secondary)
                     .font(.headline)
                     .padding(.top, 6)

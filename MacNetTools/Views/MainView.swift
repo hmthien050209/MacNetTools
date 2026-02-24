@@ -36,31 +36,37 @@ struct MainView: View {
             Divider()
 
             ScrollView {
-                // Using .flexible with a min/max prevents the "cramping" that causes overlaps
                 let columns = [
                     GridItem(
-                        .adaptive(minimum: 350, maximum: .infinity),
+                        .adaptive(minimum: 400, maximum: .infinity),
                         spacing: 20,
                         alignment: .top
                     )
                 ]
 
-                LazyVGrid(columns: columns, spacing: 20) {
-                    Group {
+                VStack(spacing: 20) {
+                    // Top Dynamic Grid for wide standard widgets
+                    LazyVGrid(columns: columns, spacing: 20) {
                         BasicNetView(viewModel: basicNetViewModel)
-                        WiFiView(viewModel: wiFiViewModel)
-                        PingView(viewModel: pingViewModel)
-                        ExternalToolsView()
-                    }
-                    .frame(
-                        maxWidth: .infinity,
-                        maxHeight: .infinity,
-                        alignment: .top
-                    )
+                            .frame(maxWidth: .infinity, alignment: .top)
 
-                    // Logs usually need more horizontal space
-                    LogView(logViewModel: logViewModel)
-                    BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
+                        WiFiView(viewModel: wiFiViewModel)
+                            .frame(maxWidth: .infinity, alignment: .top)
+
+                        PingView(viewModel: pingViewModel)
+                            .frame(maxWidth: .infinity, alignment: .top)
+
+                        ExternalToolsView()
+                            .frame(maxWidth: .infinity, alignment: .top)
+                    }
+
+                    // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
+                    // Keeping these in a standard VStack ensures they always take 100% of the window width
+                    VStack(spacing: 20) {
+                        LogView(logViewModel: logViewModel)
+                        BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
                 .padding()
             }

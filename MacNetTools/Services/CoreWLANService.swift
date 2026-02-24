@@ -38,22 +38,26 @@ class CoreWLANService {
         var encryptionInfo: String? = nil
 
         if let ssid = interface.ssid(),
-            let iface = CWWiFiClient.shared().interface()
+            let iface = CWWiFiClient.shared().interface(),
+            let networks = try? iface.scanForNetworks(
+                withSSID: ssid.data(using: .utf8)
+            ),
+            let currentNet = networks.first(where: {
+                $0.bssid == interface.bssid()
+            }),
+            let securityInfo = extractCipherInfo(from: currentNet)
         {
-            do {
-                if let networks = try? iface.scanForNetworks(
-                    withSSID: ssid.data(using: .utf8)
-                ) {
-                    if let currentNet = networks.first(where: {
-                        $0.bssid == interface.bssid()
-                    }) {
-                        if let cipher = extractCipherInfo(from: currentNet) {
-                            encryptionInfo =
-                                "\(cipher.group ?? "?") / \(cipher.pairwise.joined(separator: ", "))"
-                        }
-                    }
-                }
-            }
+            // Safely unwrap and format the arrays
+            let group = securityInfo.group ?? "Unknown"
+            let pairwise =
+                securityInfo.pairwise.isEmpty
+                ? "None" : securityInfo.pairwise.joined(separator: ", ")
+            let akms =
+                securityInfo.akms.isEmpty
+                ? "None" : securityInfo.akms.joined(separator: ", ")
+
+            encryptionInfo =
+                "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
         }
 
         return WiFiModel(
@@ -119,7 +123,10 @@ class CoreWLANService {
             for network in networks {
                 if let bssid = network.bssid {
                     let vendor = await fetchVendorName(bssid: bssid)
-                    results.append("\(bssid) (\(vendor))")
+                    let rssi = network.rssiValue
+                    let noise = network.noiseMeasurement
+                    let snr = rssi - noise
+                    results.append("\(bssid) (\(vendor), RSSI: \(rssi) dBm, Noise: \(noise) dBm, SNR: \(snr) dB")
                 }
             }
 
@@ -272,6 +279,31 @@ class CoreWLANService {
     }
 
     // MARK: - WiFi Security Stuff
+
+    private func extractCipherInfo(from network: CWNetwork) -> (
+        group: String?, pairwise: [String], akms: [String]
+    )? {
+        guard let ie = network.informationElementData else { return nil }
+        let ies = parseInformationElements(ie)
+
+        // Priority 1: Modern RSN (WPA2/WPA3) - ID 48
+        if let rsn = ies.first(where: { $0.id == 48 }) {
+            // RSN payload: Bytes 0-1 are Version. Group Cipher starts at Byte 2.
+            return parseSecurityStructure(payload: rsn.payload, baseOffset: 2)
+        }
+
+        // Priority 2: Legacy Vendor Specific WPA1 - ID 221
+        // WPA1 OUI is 00:50:F2, Type is 1.
+        if let wpa1 = ies.first(where: {
+            $0.id == 221 && $0.payload.starts(with: [0x00, 0x50, 0xF2, 0x01])
+        }) {
+            // WPA1 payload: Bytes 0-3 are OUI+Type. Bytes 4-5 are Version. Group Cipher starts at Byte 6.
+            return parseSecurityStructure(payload: wpa1.payload, baseOffset: 6)
+        }
+
+        return nil
+    }
+
     private func parseInformationElements(_ ieData: Data) -> [(
         id: UInt8, payload: Data
     )] {
@@ -289,20 +321,28 @@ class CoreWLANService {
         return result
     }
 
+    // MARK: - OUI Translators
+
     private func cipherName(_ oui: [UInt8], _ type: UInt8) -> String {
-        if oui == [0x00, 0x0F, 0xAC] {
+        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
             switch type {
             case 1: return "WEP-40"
             case 2: return "TKIP"
-            case 4: return "CCMP (AES)"
+            case 4: return "CCMP-128 (AES)"
             case 5: return "WEP-104"
-            default: return "RSN-\(type)"
+            case 6: return "BIP-CMAC-128"
+            case 8: return "GCMP-256"
+            case 9: return "GCMP-128"
+            case 10: return "BIP-GMAC-128"
+            case 11: return "BIP-GMAC-256"
+            case 12: return "BIP-CMAC-256"
+            default: return "RSN-Cipher-\(type)"
             }
-        } else if oui == [0x00, 0x50, 0xF2] {
+        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft / Legacy WPA
             switch type {
             case 2: return "TKIP (WPA)"
             case 4: return "CCMP (WPA)"
-            default: return "WPA-\(type)"
+            default: return "WPA-Cipher-\(type)"
             }
         }
         return String(
@@ -314,43 +354,107 @@ class CoreWLANService {
         )
     }
 
-    private func extractCipherInfo(from network: CWNetwork) -> (
-        group: String?, pairwise: [String]
-    )? {
-        guard let ie = network.informationElementData else { return nil }
-        let ies = parseInformationElements(ie)
-        if let rsn = ies.first(where: { $0.id == 48 }) {
-            let payload = rsn.payload
-            guard payload.count >= 8 else { return nil }
-            let group = cipherName(
-                [payload[2], payload[3], payload[4]],
-                payload[5]
-            )
-            let pairCount = Int(payload[6]) | (Int(payload[7]) << 8)
-            var pairwise: [String] = []
-            var i = 8
-            for _ in 0..<pairCount {
-                guard i + 3 < payload.count else { break }
-                pairwise.append(
-                    cipherName(
-                        [payload[i], payload[i + 1], payload[i + 2]],
-                        payload[i + 3]
-                    )
-                )
-                i += 4
+    private func akmName(_ oui: [UInt8], _ type: UInt8) -> String {
+        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
+            switch type {
+            case 1: return "802.1X (EAP)"
+            case 2: return "PSK (WPA2)"
+            case 3: return "FT-802.1X"
+            case 4: return "FT-PSK"
+            case 5: return "802.1X-SHA256"
+            case 6: return "PSK-SHA256"
+            case 8: return "SAE (WPA3)"
+            case 9: return "FT-SAE"
+            case 11: return "802.1X-Suite-B-192"
+            case 18: return "OWE"
+            default: return "AKM-\(type)"
             }
-            return (group, pairwise)
+        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft / Legacy WPA
+            switch type {
+            case 1: return "802.1X (WPA)"
+            case 2: return "PSK (WPA)"
+            default: return "WPA-AKM-\(type)"
+            }
         }
-        return nil
+        return String(
+            format: "%02X:%02X:%02X:%02X",
+            oui[0],
+            oui[1],
+            oui[2],
+            type
+        )
+    }
+
+    // MARK: - Security Structure Extractor
+
+    /// Extracts Group Cipher, Pairwise Ciphers, and AKMs starting from a specific byte offset.
+    private func parseSecurityStructure(payload: Data, baseOffset: Int) -> (
+        group: String?, pairwise: [String], akms: [String]
+    )? {
+        // Need at least 4 bytes for the Group cipher (3 for OUI, 1 for Type)
+        guard payload.count >= baseOffset + 4 else { return nil }
+
+        // 1. Parse Group Cipher
+        let groupOui = [
+            payload[baseOffset], payload[baseOffset + 1],
+            payload[baseOffset + 2],
+        ]
+        let groupType = payload[baseOffset + 3]
+        let group = cipherName(groupOui, groupType)
+
+        var offset = baseOffset + 4
+
+        // Helper function to extract lists of suites (Pairwise or AKM)
+        func extractSuites(count: Int, nameResolver: ([UInt8], UInt8) -> String)
+            -> [String]
+        {
+            var suites: [String] = []
+            for _ in 0..<count {
+                guard offset + 3 < payload.count else { break }
+                let oui = [
+                    payload[offset], payload[offset + 1], payload[offset + 2],
+                ]
+                let type = payload[offset + 3]
+                suites.append(nameResolver(oui, type))
+                offset += 4
+            }
+            return suites
+        }
+
+        // 2. Parse Pairwise Ciphers
+        var pairwise: [String] = []
+        if offset + 1 < payload.count {
+            let pairCount =
+                Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
+            offset += 2
+            pairwise = extractSuites(count: pairCount, nameResolver: cipherName)
+        }
+
+        // 3. Parse AKMs
+        var akms: [String] = []
+        if offset + 1 < payload.count {
+            let akmCount =
+                Int(payload[offset]) | (Int(payload[offset + 1]) << 8)
+            offset += 2
+            akms = extractSuites(count: akmCount, nameResolver: akmName)
+        }
+
+        return (group, pairwise, akms)
     }
 
     // MARK: - Vendor specific info
 
     /// Dynamically fetches the vendor name from a BSSID using a public API
     func fetchVendorName(bssid: String?) async -> String {
-        guard let bssid = bssid, !bssid.isEmpty else { return "Unknown" }
+        guard let bssid = bssid, !bssid.isEmpty else {
+            return "BSSID unknown, can't get vendor"
+        }
 
-        if let cached = await vendorCache.get(bssid) { return cached }
+        if let cached = await vendorCache.get(bssid),
+            cached != kUnknownVendor && cached != kVendorLookupFailed
+        {
+            return cached
+        }
 
         guard let url = URL(string: "https://api.macvendors.com/\(bssid)")
         else { return "Invalid BSSID" }
@@ -359,13 +463,13 @@ class CoreWLANService {
             let (data, res) = try await URLSession.shared.data(from: url)
             let name =
                 (res as? HTTPURLResponse)?.statusCode == 200
-                ? String(data: data, encoding: .utf8) ?? "Unknown Vendor"
-                : "Generic / Unknown"
+                ? String(data: data, encoding: .utf8) ?? kUnknownVendor
+                : kUnknownVendor
 
             await vendorCache.set(name, for: bssid)
             return name
         } catch {
-            return "Lookup Failed"
+            return kVendorLookupFailed
         }
     }
 }
