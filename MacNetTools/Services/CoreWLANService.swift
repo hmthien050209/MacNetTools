@@ -186,7 +186,7 @@ class CoreWLANService: @unchecked Sendable {
             let vendor = await fetchVendorName(bssid: data.bssid)
             let snr = data.rssi - data.noise
             results.append(
-                "\(data.bssid) (\(vendor), RSSI: \(data.rssi) dBm, Noise: \(data.noise) dBm, SNR: \(snr) dB"
+                "\(data.bssid) (\(vendor), RSSI: \(data.rssi) dBm, Noise: \(data.noise) dBm, SNR: \(snr) dB)"
             )
         }
         return results
