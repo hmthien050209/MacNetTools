@@ -1,30 +1,6 @@
 import CoreWLAN
 import SwiftUI
 
-enum SignalHealth {
-    case excellent, good, fair, poor, unusable
-
-    var label: String {
-        switch self {
-        case .excellent: return "Excellent"
-        case .good: return "Good"
-        case .fair: return "Fair"
-        case .poor: return "Poor"
-        case .unusable: return "Unusable"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .excellent: return .green
-        case .good: return .mint
-        case .fair: return .yellow
-        case .poor: return .orange
-        case .unusable: return .red
-        }
-    }
-}
-
 struct WiFiView: View {
     var viewModel: WiFiViewModel
 
@@ -49,6 +25,17 @@ struct WiFiView: View {
                     InfoGridRow(
                         label: "Channel",
                         value: channelDescription(model.channel)
+                    )
+                    if let sco = model.secondaryChannelOffset {
+                        InfoGridRow(
+                            label: "2nd Ch Offset",
+                            value: sco
+                        )
+                    }
+                    InfoGridRow(
+                        label: "2nd Ch",
+                        value: model.secondaryChannels.map { String($0) }
+                            .joined(separator: ", ")
                     )
                     InfoGridRow(
                         label: "Security",
