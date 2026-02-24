@@ -15,28 +15,40 @@ struct WiFiView: View {
                     horizontalSpacing: 8,
                     verticalSpacing: 6
                 ) {
-                    InfoGridRow(label: "SSID", value: model.ssid)
-                    InfoGridRow(label: "BSSID", value: model.connectedBssid)
-                    InfoGridRow(label: "Vendor", value: model.vendor)
                     InfoGridRow(
                         label: "Interface",
                         value: model.interfaceName ?? kUnknown
                     )
+
+                    InfoGridRow(label: "SSID", value: model.ssid)
+
+                    InfoGridRow(label: "BSSID", value: model.connectedBssid)
+
+                    InfoGridRow(label: "Vendor", value: model.vendor)
+
+                    InfoGridRow(
+                        label: "PHY mode",
+                        value: readablePHYMode(model.phyMode)
+                    )
+
                     InfoGridRow(
                         label: "Channel",
                         value: channelDescription(model.channel)
                     )
+
                     if let sco = model.secondaryChannelOffset {
                         InfoGridRow(
                             label: "Secondary Channel Offset",
                             value: sco
                         )
                     }
+
                     InfoGridRow(
                         label: "Secondary Channels",
                         value: model.secondaryChannels.map { String($0) }
                             .joined(separator: ", ")
                     )
+
                     InfoGridRow(
                         label: "Security",
                         value: readableSecurity(model.security)
@@ -62,7 +74,9 @@ struct WiFiView: View {
                         label: "TX Rate",
                         value: "\(Int(model.txRateMbps)) Mbps"
                     )
+
                     InfoGridRow(label: "Country", value: model.countryCode)
+
                     InfoGridRow(
                         label: "Encryption",
                         value: model.encryptionInfo
@@ -74,6 +88,32 @@ struct WiFiView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func readablePHYMode(_ phyMode: CWPHYMode) -> String {
+        switch phyMode {
+        case .modeNone:
+            return "Unknown"
+        case .mode11a:
+            return "802.11a"
+        case .mode11b:
+            return "802.11b"
+        case .mode11g:
+            return "802.11g"
+        case .mode11n:
+            return "802.11n (Wi-Fi 4)"
+        case .mode11ac:
+            return "802.11ac (Wi-Fi 5)"
+        case .mode11ax:
+            return "802.11ax (Wi-Fi 6/6E)"
+        case let mode where mode.rawValue == 7:
+            return "802.11be (Wi-Fi 7)"
+        @unknown default:
+            return "Unknown (%d)".replacingOccurrences(
+                of: "%d",
+                with: "\(phyMode.rawValue)"
+            )
+        }
     }
 
     private func readableSecurity(_ security: CWSecurity) -> String {
