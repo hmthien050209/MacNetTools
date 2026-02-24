@@ -5,9 +5,12 @@ struct IEDataView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: kSpacing) {
+            Text("WiFi IE Data")
+                .font(.headline)
+
             // BSS Load Section
             Text("BSS Load")
-                .font(.headline)
+                .font(.subheadline)
 
             if let bssLoad = viewModel.wiFiModel?.bssLoad {
                 Grid(
@@ -44,7 +47,7 @@ struct IEDataView: View {
 
             // Vendor Specific Section
             Text("Vendor Specific")
-                .font(.headline)
+                .font(.subheadline)
 
             if let vendorIEs = viewModel.wiFiModel?.vendorSpecificIEs,
                 !vendorIEs.isEmpty

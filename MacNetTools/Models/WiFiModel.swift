@@ -38,6 +38,8 @@ struct WiFiModel {
     var vendorSpecificIEs: [VendorSpecificIE]
     /// Secondary channel offset from HT Operation IE (e.g. "Above", "Below", "None").
     var secondaryChannelOffset: String?
+    /// List of computed secondary channels derived from HT/VHT Operation IEs.
+    var secondaryChannels: [Int]
 }
 
 struct Ipify: Decodable {

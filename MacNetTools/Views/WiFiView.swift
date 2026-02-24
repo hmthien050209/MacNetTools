@@ -33,6 +33,11 @@ struct WiFiView: View {
                         )
                     }
                     InfoGridRow(
+                        label: "2nd Ch",
+                        value: model.secondaryChannels.map { String($0) }
+                            .joined(separator: ", ")
+                    )
+                    InfoGridRow(
                         label: "Security",
                         value: readableSecurity(model.security)
                     )

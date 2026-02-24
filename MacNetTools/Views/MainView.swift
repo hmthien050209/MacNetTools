@@ -63,9 +63,9 @@ struct MainView: View {
                     // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
                     // Keeping these in a standard VStack ensures they always take 100% of the window width
                     VStack(spacing: 20) {
+                        IEDataView(viewModel: wiFiViewModel)
                         LogView(logViewModel: logViewModel)
                         BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
-                        IEDataView(viewModel: wiFiViewModel)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
                 }
