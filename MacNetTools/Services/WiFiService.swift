@@ -112,11 +112,14 @@ class WiFiService: @unchecked Sendable {
             from: scannedNetworksWithSameSSID
         )
 
-        let (vendor, availableBssidsWithVendors, nearbyNetworks) = await (
+        var (vendor, availableBssidsWithVendors, nearbyNetworks) = await (
             fetchedVendor, fetchedAvailableBssidsWithVendors,
             fetchedNearbyNetworks
         )
-
+        
+        availableBssidsWithVendors = availableBssidsWithVendors.map { $0.contains(connectedBssid) ? "\($0) (Connected)" : $0 }
+        nearbyNetworks = nearbyNetworks.map { $0.contains(connectedBssid) ? "(Connected)\n\($0)" : $0 }
+        
         return WiFiModel(
             ssid: ssid,
             connectedBssid: connectedBssid,
