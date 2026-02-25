@@ -28,7 +28,7 @@ struct IEDataView: View {
 
                     /// Calculates the percentage of available medium time.
                     ///
-                    /// Per IEEE Std 802.11-2020, Section 9.4.2.27 (BSS Load element):
+                    /// Per IEEE 802.11-2024, Section 9.4.2.26 (BSS Load element):
                     /// The "Available Admission Capacity" field is a 2-octet unsigned integer that
                     /// indicates the remaining amount of medium time available via explicit
                     /// admission control, in units of 32 microseconds per second.

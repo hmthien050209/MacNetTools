@@ -29,7 +29,7 @@ private struct ScannedNetworkData: Sendable {
 
 /// Wraps CoreWLAN to provide WiFi scanning and vendor lookup.
 /// Information Element (IE) parsing is handled via `WiFiIEParser`.
-/// Reference: IEEE 802.11-2020 Clause 11 (MLME) and Clause 9 (Frame Formats).
+/// Reference: IEEE 802.11-2024 Clause 11 (MLME) and Clause 9 (Frame Formats).
 class WiFiService: @unchecked Sendable {
     private let vendorCache = VendorCache()
 
@@ -73,7 +73,7 @@ class WiFiService: @unchecked Sendable {
         let scannedNearbyNetworks = await scanNetworksInBackground()
 
         // Parse Information Elements (IEs) for the connected BSSID
-        // Reference: IEEE 802.11-2020 Clause 9.4.2 (Information Elements)
+        // Reference: IEEE 802.11-2024 Clause 9.4.2 (Elements)
         var encryptionInfo: String? = nil
         var bssLoad: BSSLoadInfo? = nil
         var vendorSpecificIEs: [VendorSpecificIE] = []
@@ -99,7 +99,7 @@ class WiFiService: @unchecked Sendable {
                     "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
             }
 
-            // QBSS Load (802.11k/802.11-2020 9.4.2.27)
+            // BSS Load (IEEE 802.11-2024 Clause 9.4.2.26)
             bssLoad = WiFiIEParser.extractBSSLoad(from: ies)
             vendorSpecificIEs = WiFiIEParser.extractVendorSpecificIEs(from: ies)
             secondaryChannelOffset = WiFiIEParser.extractSecondaryChannelOffset(
@@ -268,7 +268,7 @@ class WiFiService: @unchecked Sendable {
     /// Fetches the hardware vendor for a given BSSID (OUI lookup).
     ///
     /// The first 3 octets (OUI) typically identify the manufacturer.
-    /// Reference: IEEE 802.11 standards for BSSID format.
+    /// Reference: IEEE 802.11-2024, Clause 9.2.4.3.4 (BSSID) and Clause 9.4.1.29 (Organization Identifier).
     /// Logic includes retry-on-rate-limit (429) and staggered polling.
     func fetchVendorName(bssid: String?) async -> String {
         guard let bssid = bssid, !bssid.isEmpty else {

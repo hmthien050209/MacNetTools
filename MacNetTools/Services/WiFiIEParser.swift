@@ -32,11 +32,7 @@ private let knownOUIs: [String: String] = [
 
 /// Pure-function helpers for parsing IEEE 802.11 Information Elements (IE).
 ///
-/// This parser implements the encoding rules specified in IEEE 802.11-2020:
-/// - Clause 9.4.2: Information Elements
-/// - Clause 9.4.2.25: RSN Element
-/// - Clause 9.4.2.27: BSS Load Element
-/// - Clause 9.4.1.4: Beacon Frame Format
+/// This parser implements the encoding rules specified in IEEE 802.11-2024
 enum WiFiIEParser {
 
     // MARK: - Top-level parsers
@@ -66,7 +62,7 @@ enum WiFiIEParser {
 
     /// Extracts security cipher and AKM info from RSN (ID 48) or WPA1 Vendor (ID 221) IEs.
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25 (RSN element).
+    /// Reference: IEEE 802.11-2024 Clause 9.4.2.23 (RSN element).
     static func extractCipherInfo(from ies: [(id: UInt8, payload: Data)]) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
@@ -87,7 +83,7 @@ enum WiFiIEParser {
 
     /// Extracts BSS Load metrics (ID 11).
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.27.
+    /// Reference: IEEE 802.11-2024 Clause 9.4.2.26.
     /// Payload format:
     /// - Station Count (2 octets)
     /// - Channel Utilization (1 octet) - Value 0-255 representing normalized load.
@@ -112,11 +108,12 @@ enum WiFiIEParser {
 
     /// Extracts the secondary channel offset from HT Operation IE (ID 61).
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.57.
+    /// Reference: IEEE 802.11-2024 Clause 9.4.2.55 (HT Operation element).
     /// Secondary Channel Offset (2 bits):
     /// - 0: No secondary channel
     /// - 1: Secondary channel is above the primary
     /// - 3: Secondary channel is below the primary
+    /// - 2: Currently reserved
     static func extractSecondaryChannelOffset(
         from ies: [(id: UInt8, payload: Data)]
     ) -> String? {
@@ -135,8 +132,13 @@ enum WiFiIEParser {
 
     /// Calculates secondary channels for wideband operations (802.11n/ac/ax).
     ///
-    /// This logic synthesizes data from HT (ID 61) and VHT (ID 192) Info elements
-    /// to map out the bonded channel set.
+    /// This logic synthesizes data from HT and VHT Operation elements to map
+    /// out the bonded channel set.
+    ///
+    /// References (IEEE 802.11-2024):
+    /// - Clause 9.4.2.55: HT Operation element (ID 61)
+    /// - Clause 9.4.2.157: VHT Operation element (ID 192)
+    /// - Table 9-134: Values of the Secondary Channel Offset field
     static func extractSecondaryChannels(
         primaryChannel: Int,
         ies: [(id: UInt8, payload: Data)]
@@ -145,7 +147,6 @@ enum WiFiIEParser {
         var channels: [Int] = []
 
         // VHT Operation (ID 192) for 80/160MHz
-        // Reference: IEEE 802.11-2020 Clause 9.4.2.159
         if let vht = ies.first(where: { $0.id == 192 }), vht.payload.count >= 3
         {
             let width = vht.payload[0]
@@ -187,7 +188,7 @@ enum WiFiIEParser {
 
     /// Resolves Vendor Specific IEs (ID 221) and maps OUIs to vendor names.
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.26.
+    /// Reference: IEEE 802.11-2024, Clause 9.4.2.24 (Vendor Specific element).
     static func extractVendorSpecificIEs(from ies: [(id: UInt8, payload: Data)])
         -> [VendorSpecificIE]
     {
@@ -213,6 +214,12 @@ enum WiFiIEParser {
     // MARK: - Private helpers
 
     /// Internal security structure parser for RSN suites.
+    ///
+    /// Reference: IEEE 802.11-2024, Clause 9.4.2.23 (RSN element).
+    /// Implements parsing for:
+    /// - Group Data Cipher Suite (4 octets)
+    /// - Pairwise Cipher Suite Count (2 octets, little-endian)
+    /// - AKM Suite Count (2 octets, little-endian)
     nonisolated private static func parseSecurityStructure(
         payload: Data,
         baseOffset: Int
@@ -273,7 +280,9 @@ enum WiFiIEParser {
 
     /// Decodes Cipher Suite selectors from 802.11 OUI and Type.
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25.2, Table 9-131.
+    /// Reference: IEEE 802.11-2024, Table 9-188.
+    /// Note: Types 1 (WEP-40) and 5 (WEP-104) are Pre-RSNA legacy (Clause 12.3).
+    /// Note: Type 2 (TKIP) is marked as obsolete in the 2024 standard (Clause 5.1.2).
     nonisolated private static func cipherName(_ oui: [UInt8], _ type: UInt8)
         -> String
     {
@@ -309,7 +318,7 @@ enum WiFiIEParser {
 
     /// Decodes AKM (Authentication and Key Management) Suite selectors.
     ///
-    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25.3, Table 9-133.
+    /// Reference: IEEE 802.11-2024, Clause 9.4.2.23, Table 9-190.
     nonisolated private static func akmName(_ oui: [UInt8], _ type: UInt8)
         -> String
     {
