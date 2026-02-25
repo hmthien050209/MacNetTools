@@ -41,13 +41,13 @@ struct WiFiView: View {
                             label: "Secondary Channel Offset",
                             value: sco
                         )
-                    }
 
-                    InfoGridRow(
-                        label: "Secondary Channels",
-                        value: model.secondaryChannels.map { String($0) }
-                            .joined(separator: ", ")
-                    )
+                        InfoGridRow(
+                            label: "Secondary Channels",
+                            value: model.secondaryChannels.map { String($0) }
+                                .joined(separator: ", ")
+                        )
+                    }
 
                     InfoGridRow(
                         label: "Security",
