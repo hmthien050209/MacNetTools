@@ -58,6 +58,15 @@ extension CWChannel {
     }
 
     /// Maps the channel number to its UNII band name.
+    /// Regulatory references: FCC 47 CFR §15.247 (2.4 GHz), FCC 47 CFR §15.407
+    /// (5/6 GHz), ETSI EN 300 328 (2.4 GHz), ETSI EN 301 893 (5 GHz),
+    /// ETSI EN 302 502 (5 GHz).
+    /// Links:
+    /// - https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-B/section-15.247
+    /// - https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-E/section-15.407
+    /// - https://www.etsi.org/deliver/etsi_en/300300_300399/300328/
+    /// - https://www.etsi.org/deliver/etsi_en/301800_301899/301893/
+    /// - https://www.etsi.org/deliver/etsi_en/302500_302599/302502/
     public var uniiBand: String {
         switch self.channelBand {
         case .band2GHz:
@@ -66,7 +75,7 @@ extension CWChannel {
             switch self.channelNumber {
             case 36...48: return "UNII-1"
             case 52...64: return "UNII-2A"
-            case 100...140: return "UNII-2C"
+            case 100...144: return "UNII-2C"
             case 149...165: return "UNII-3"
             default: return "Unknown"
             }
@@ -81,8 +90,13 @@ extension CWChannel {
     }
 
     /// Determines if the channel is in a DFS (Dynamic Frequency Selection) range.
+    /// DFS requirements are defined in FCC 47 CFR §15.407 and ETSI EN 301 893.
+    /// Links:
+    /// - https://www.ecfr.gov/current/title-47/chapter-I/subchapter-A/part-15/subpart-E/section-15.407
+    /// - https://www.etsi.org/deliver/etsi_en/301800_301899/301893/
     public var isDFS: Bool {
-        return (52...64).contains(self.channelNumber) || (100...140).contains(self.channelNumber)
+        return (52...64).contains(self.channelNumber)
+            || (100...144).contains(self.channelNumber)
     }
 }
 
@@ -113,8 +127,10 @@ extension CWChannelWidth: @retroactive CustomStringConvertible {
 
 // MARK: - Signal Health Calculations
 
+/// Vendor references (signal metrics):
+/// - HPE Aruba Networking RF Design: https://arubanetworking.hpe.com/techdocs/VSG/docs/010-campus-design/esp-campus-design-047-rf-design/
 extension SignalHealth {
-    /// calculates health based on RSSI (Enterprise standards).
+    /// Calculates health based on RSSI (Enterprise standards).
     public static func from(rssi: Int) -> SignalHealth {
         if rssi >= -55 { return .excellent }
         if rssi >= -67 { return .good }
@@ -123,7 +139,7 @@ extension SignalHealth {
         return .unusable
     }
 
-    /// calculates health based on SNR (MCS rate requirements).
+    /// Calculates health based on SNR (MCS rate requirements).
     public static func from(snr: Int) -> SignalHealth {
         if snr >= 35 { return .excellent }
         if snr >= 25 { return .good }
