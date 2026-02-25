@@ -49,11 +49,6 @@ struct WiFiView: View {
                         )
                     }
 
-                    InfoGridRow(
-                        label: "Security",
-                        value: readableSecurity(model.security)
-                    )
-
                     InfoGridRow(label: "RSSI") {
                         SignalHealthPatch(
                             health: health(forRssi: model.rssi),
@@ -76,6 +71,11 @@ struct WiFiView: View {
                     )
 
                     InfoGridRow(label: "Country", value: model.countryCode)
+
+                    InfoGridRow(
+                        label: "Security",
+                        value: readableSecurity(model.security)
+                    )
 
                     InfoGridRow(
                         label: "Encryption",

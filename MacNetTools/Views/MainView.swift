@@ -226,11 +226,6 @@ struct MainView: View {
             new: updated.connectedBssid
         )
         logChange(
-            label: "Interface",
-            old: previous?.interfaceName,
-            new: updated.interfaceName ?? kUnknown
-        )
-        logChange(
             label: "Channel",
             old: previous?.channel?.channelNumber.description,
             new: updated.channel.map { "\($0.channelNumber)" } ?? kUnknown
@@ -239,31 +234,6 @@ struct MainView: View {
             label: "Security",
             old: previous.map { String(describing: $0.security) },
             new: String(describing: updated.security)
-        )
-        logChange(
-            label: "RSSI",
-            old: previous?.rssi.description,
-            new: updated.rssi.description
-        )
-        logChange(
-            label: "Noise",
-            old: previous?.noise.description,
-            new: updated.noise.description
-        )
-        logChange(
-            label: "SNR",
-            old: previous?.signalNoiseRatio.description,
-            new: updated.signalNoiseRatio.description
-        )
-        logChange(
-            label: "TX Rate",
-            old: previous.map { Int($0.txRateMbps).description },
-            new: Int(updated.txRateMbps).description
-        )
-        logChange(
-            label: "Country",
-            old: previous?.countryCode,
-            new: updated.countryCode
         )
     }
 
@@ -299,7 +269,7 @@ struct MainView: View {
         guard old != new else { return }
         if let old {
             logViewModel.append(
-                "\(label): changed from \"\(old)\" to \"\(new)\""
+                "\(label): \"\(old)\" -> \"\(new)\""
             )
         }
     }
