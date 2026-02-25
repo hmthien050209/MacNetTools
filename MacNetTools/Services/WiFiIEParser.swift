@@ -30,11 +30,23 @@ private let knownOUIs: [String: String] = [
     "00:26:44": "Thomson Telecom",
 ]
 
-/// Pure-function helpers for parsing 802.11 Information Elements.
+/// Pure-function helpers for parsing IEEE 802.11 Information Elements (IE).
+///
+/// This parser implements the encoding rules specified in IEEE 802.11-2020:
+/// - Clause 9.4.2: Information Elements
+/// - Clause 9.4.2.25: RSN Element
+/// - Clause 9.4.2.27: BSS Load Element
+/// - Clause 9.4.1.4: Beacon Frame Format
 enum WiFiIEParser {
 
     // MARK: - Top-level parsers
 
+    /// Parses raw IEEE 802.11 Information Element data into an ID-payload list.
+    ///
+    /// Implements Clause 9.4.2.1: Element format. Each element has:
+    /// - Element ID (1 octet)
+    /// - Length (1 octet)
+    /// - Information (0-255 octets)
     static func parseInformationElements(_ ieData: Data) -> [(
         id: UInt8, payload: Data
     )] {
@@ -52,28 +64,34 @@ enum WiFiIEParser {
         return result
     }
 
+    /// Extracts security cipher and AKM info from RSN (ID 48) or WPA1 Vendor (ID 221) IEs.
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25 (RSN element).
     static func extractCipherInfo(from ies: [(id: UInt8, payload: Data)]) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
-        // Priority 1: Modern RSN (WPA2/WPA3) - ID 48
+        // RSN Element (ID 48) for WPA2/WPA3
         if let rsn = ies.first(where: { $0.id == 48 }) {
-            // RSN payload: Bytes 0-1 are Version. Group Cipher starts at Byte 2.
             return parseSecurityStructure(payload: rsn.payload, baseOffset: 2)
         }
 
-        // Priority 2: Legacy Vendor Specific WPA1 - ID 221
-        // WPA1 OUI is 00:50:F2, Type is 1.
+        // Vendor Specific WPA1 (ID 221) with Microsoft OUI (00:50:F2 Type 1)
         if let wpa1 = ies.first(where: {
             $0.id == 221 && $0.payload.starts(with: [0x00, 0x50, 0xF2, 0x01])
         }) {
-            // WPA1 payload: Bytes 0-3 are OUI+Type. Bytes 4-5 are Version. Group Cipher starts at Byte 6.
             return parseSecurityStructure(payload: wpa1.payload, baseOffset: 6)
         }
 
         return nil
     }
 
-    /// Extracts BSS Load element (IE ID 11) from pre-parsed Information Elements.
+    /// Extracts BSS Load metrics (ID 11).
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.27.
+    /// Payload format:
+    /// - Station Count (2 octets)
+    /// - Channel Utilization (1 octet) - Value 0-255 representing normalized load.
+    /// - Available Admission Capacity (2 octets)
     static func extractBSSLoad(from ies: [(id: UInt8, payload: Data)])
         -> BSSLoadInfo?
     {
@@ -81,7 +99,6 @@ enum WiFiIEParser {
             ie.payload.count >= 5
         else { return nil }
 
-        // 802.11 IEs use little-endian byte order for multi-byte fields
         let stationCount = Int(ie.payload[0]) | (Int(ie.payload[1]) << 8)
         let utilization = Double(ie.payload[2]) / 255.0 * 100.0
         let capacity = Int(ie.payload[3]) | (Int(ie.payload[4]) << 8)
@@ -94,10 +111,15 @@ enum WiFiIEParser {
     }
 
     /// Extracts the secondary channel offset from HT Operation IE (ID 61).
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.57.
+    /// Secondary Channel Offset (2 bits):
+    /// - 0: No secondary channel
+    /// - 1: Secondary channel is above the primary
+    /// - 3: Secondary channel is below the primary
     static func extractSecondaryChannelOffset(
         from ies: [(id: UInt8, payload: Data)]
     ) -> String? {
-        // HT Operation IE: byte 0 = primary channel, byte 1 bits 0-1 = secondary channel offset
         guard let ie = ies.first(where: { $0.id == 61 }),
             ie.payload.count >= 2
         else { return nil }
@@ -111,7 +133,10 @@ enum WiFiIEParser {
         }
     }
 
-    /// Extracts the list of secondary channels based on HT (ID 61) and VHT (ID 192) Operation IEs.
+    /// Calculates secondary channels for wideband operations (802.11n/ac/ax).
+    ///
+    /// This logic synthesizes data from HT (ID 61) and VHT (ID 192) Info elements
+    /// to map out the bonded channel set.
     static func extractSecondaryChannels(
         primaryChannel: Int,
         ies: [(id: UInt8, payload: Data)]
@@ -119,7 +144,8 @@ enum WiFiIEParser {
         guard primaryChannel > 0 else { return [] }
         var channels: [Int] = []
 
-        // Priority 1: VHT Operation IE (802.11ac for 80MHz, 160MHz, 80+80MHz)
+        // VHT Operation (ID 192) for 80/160MHz
+        // Reference: IEEE 802.11-2020 Clause 9.4.2.159
         if let vht = ies.first(where: { $0.id == 192 }), vht.payload.count >= 3
         {
             let width = vht.payload[0]
@@ -127,19 +153,14 @@ enum WiFiIEParser {
             let center2 = Int(vht.payload[2])
 
             if width == 1 || width == 2 || width == 3 {
-                // width 1 = 80MHz (4 channels)
                 if width == 1 {
                     channels.append(contentsOf: [
                         center1 - 6, center1 - 2, center1 + 2, center1 + 6,
                     ])
-                }
-                // width 2 = 160MHz (8 channels)
-                else if width == 2 {
+                } else if width == 2 {
                     let offsets = [-14, -10, -6, -2, 2, 6, 10, 14]
                     channels.append(contentsOf: offsets.map { center1 + $0 })
-                }
-                // width 3 = 80+80MHz (4 channels + 4 channels)
-                else if width == 3 {
+                } else if width == 3 {
                     channels.append(contentsOf: [
                         center1 - 6, center1 - 2, center1 + 2, center1 + 6,
                     ])
@@ -147,31 +168,26 @@ enum WiFiIEParser {
                         center2 - 6, center2 - 2, center2 + 2, center2 + 6,
                     ])
                 }
-
-                // Filter out the primary channel, leaving only the secondaries
                 return channels.filter { $0 != primaryChannel }.sorted()
             }
         }
 
-        // Priority 2: HT Operation IE (802.11n for 40MHz)
-        // If VHT is missing or width == 0 (which means 20/40 MHz fallback), we use HT.
+        // Fallback to HT Operation (ID 61) for 40MHz
         if let ht = ies.first(where: { $0.id == 61 }), ht.payload.count >= 2 {
             let offset = ht.payload[1] & 0x03
             if offset == 1 {
-                // Secondary is "Above" (+4)
                 return [primaryChannel + 4]
             } else if offset == 3 {
-                // Secondary is "Below" (-4)
                 return [primaryChannel - 4]
             }
         }
 
-        // Returns empty if it's strictly a 20MHz network
         return []
     }
 
-    /// Extracts unique Vendor Specific IEs (IE ID 221) with resolved vendor names
-    /// using a built-in OUI database (like Aruba Network Utility).
+    /// Resolves Vendor Specific IEs (ID 221) and maps OUIs to vendor names.
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.26.
     static func extractVendorSpecificIEs(from ies: [(id: UInt8, payload: Data)])
         -> [VendorSpecificIE]
     {
@@ -196,17 +212,15 @@ enum WiFiIEParser {
 
     // MARK: - Private helpers
 
-    /// Extracts Group Cipher, Pairwise Ciphers, and AKMs starting from a specific byte offset.
+    /// Internal security structure parser for RSN suites.
     nonisolated private static func parseSecurityStructure(
         payload: Data,
         baseOffset: Int
     ) -> (
         group: String?, pairwise: [String], akms: [String]
     )? {
-        // Need at least 4 bytes for the Group cipher (3 for OUI, 1 for Type)
         guard payload.count >= baseOffset + 4 else { return nil }
 
-        // 1. Parse Group Cipher
         let groupOui = [
             payload[baseOffset], payload[baseOffset + 1],
             payload[baseOffset + 2],
@@ -216,7 +230,6 @@ enum WiFiIEParser {
 
         var offset = baseOffset + 4
 
-        // Helper function to extract lists of security suites (Pairwise ciphers or AKMs)
         func extractSecuritySuites(
             count: Int,
             nameResolver: ([UInt8], UInt8) -> String
@@ -234,7 +247,6 @@ enum WiFiIEParser {
             return suites
         }
 
-        // 2. Parse Pairwise Ciphers
         var pairwise: [String] = []
         if offset + 1 < payload.count {
             let pairCount =
@@ -246,7 +258,6 @@ enum WiFiIEParser {
             )
         }
 
-        // 3. Parse AKMs
         var akms: [String] = []
         if offset + 1 < payload.count {
             let akmCount =
@@ -260,10 +271,13 @@ enum WiFiIEParser {
 
     // MARK: - OUI translators
 
+    /// Decodes Cipher Suite selectors from 802.11 OUI and Type.
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25.2, Table 9-131.
     nonisolated private static func cipherName(_ oui: [UInt8], _ type: UInt8)
         -> String
     {
-        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
+        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard OUI
             switch type {
             case 1: return "WEP-40"
             case 2: return "TKIP"
@@ -277,7 +291,7 @@ enum WiFiIEParser {
             case 12: return "BIP-CMAC-256"
             default: return "RSN-Cipher-\(type)"
             }
-        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft / Legacy WPA
+        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft/WPA1 OUI
             switch type {
             case 2: return "TKIP (WPA)"
             case 4: return "CCMP (WPA)"
@@ -293,10 +307,13 @@ enum WiFiIEParser {
         )
     }
 
+    /// Decodes AKM (Authentication and Key Management) Suite selectors.
+    ///
+    /// Reference: IEEE 802.11-2020 Clause 9.4.2.25.3, Table 9-133.
     nonisolated private static func akmName(_ oui: [UInt8], _ type: UInt8)
         -> String
     {
-        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard
+        if oui == [0x00, 0x0F, 0xAC] {  // IEEE Standard OUI
             switch type {
             case 1: return "802.1X (EAP)"
             case 2: return "PSK (WPA2)"
@@ -310,7 +327,7 @@ enum WiFiIEParser {
             case 18: return "OWE"
             default: return "AKM-\(type)"
             }
-        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft / Legacy WPA
+        } else if oui == [0x00, 0x50, 0xF2] {  // Microsoft/WPA1 OUI
             switch type {
             case 1: return "802.1X (WPA)"
             case 2: return "PSK (WPA)"

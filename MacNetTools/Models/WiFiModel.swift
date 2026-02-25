@@ -14,6 +14,18 @@ struct VendorSpecificIE: Identifiable {
     var vendorName: String
 }
 
+struct NearbyWiFiNetwork: Identifiable, Sendable {
+    let id = UUID()
+    var ssid: String
+    var bssid: String
+    var vendor: String
+    var channel: Int
+    var band: String
+    var phyMode: String
+    var rssi: Int
+    var isConnected: Bool
+}
+
 struct WiFiModel {
     var ssid: String
     var connectedBssid: String
@@ -26,7 +38,7 @@ struct WiFiModel {
     var signalNoiseRatio: Int
     var countryCode: String
     /// All available BSSIDs with vendors for the current SSID.
-    var availableBssidsWithVendors: [String]
+    var availableBssidsWithVendors: [NearbyWiFiNetwork]
     /// Negotiated WiFi transmit rate (Mbps)
     var txRateMbps: Double
     /// Interface name (e.g. en0) for status bar.
@@ -40,6 +52,6 @@ struct WiFiModel {
     var secondaryChannelOffset: String?
     /// List of computed secondary channels derived from HT/VHT Operation IEs.
     var secondaryChannels: [Int]
-    /// List of nearby networks with metadata
-    var nearbyNetworks: [String]
+    /// List of nearby networks with structured metadata
+    var nearbyNetworks: [NearbyWiFiNetwork]
 }
