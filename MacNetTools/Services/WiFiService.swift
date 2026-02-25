@@ -16,10 +16,12 @@ actor VendorCache {
 
 /// Holds data extracted from a CWNetwork scan result, using only Sendable types
 /// so it can safely cross thread boundaries.
+/// When not connected, the noise is always 0, so we only include the RSSI data
 private struct ScannedNetworkData: Sendable {
+    let ssid: String
     let bssid: String
     let rssi: Int
-    let noise: Int
+    let channelNumber: Int
     let informationElementData: Data?
 }
 
@@ -57,7 +59,10 @@ class WiFiService: @unchecked Sendable {
 
         // Run the expensive scanForNetworks on a background GCD queue
         // to avoid blocking the Swift cooperative thread pool
-        let scannedNetworks = await scanNetworksInBackground(ssid: ssid)
+        let scannedNetworksWithSameSSID = await scanNetworksInBackground(
+            ssid: ssid
+        )
+        let scannedNearbyNetworks = await scanNetworksInBackground()
 
         // Parse Information Elements once for the connected BSSID
         var encryptionInfo: String? = nil
@@ -66,7 +71,7 @@ class WiFiService: @unchecked Sendable {
         var secondaryChannelOffset: String? = nil
         var secondaryChannels: [Int] = []
 
-        if let currentData = scannedNetworks.first(where: {
+        if let currentData = scannedNetworksWithSameSSID.first(where: {
             $0.bssid == connectedBssid
         }),
             let ieData = currentData.informationElementData
@@ -96,14 +101,20 @@ class WiFiService: @unchecked Sendable {
             )
         }
 
-        // Async vendor lookups (non-blocking, fine on cooperative pool)
-        async let fetchedVendor = fetchVendorName(bssid: connectedBssid)
-        async let fetchedAvailableBssidsWithVendors = buildBSSIDsWithVendors(
-            from: scannedNetworks
+        // Nearby WiFi
+        async let fetchedNearbyNetworks = buildNearbyWiFiWithMetadata(
+            from: scannedNearbyNetworks
         )
 
-        let (vendor, availableBssidsWithVendors) = await (
-            fetchedVendor, fetchedAvailableBssidsWithVendors
+        // Async vendor lookups (non-blocking, fine on cooperative pool)
+        async let fetchedVendor = fetchVendorName(bssid: connectedBssid)
+        async let fetchedAvailableBssidsWithVendors = buildBSSIDsWithMetadata(
+            from: scannedNetworksWithSameSSID
+        )
+
+        let (vendor, availableBssidsWithVendors, nearbyNetworks) = await (
+            fetchedVendor, fetchedAvailableBssidsWithVendors,
+            fetchedNearbyNetworks
         )
 
         return WiFiModel(
@@ -124,7 +135,8 @@ class WiFiService: @unchecked Sendable {
             bssLoad: bssLoad,
             vendorSpecificIEs: vendorSpecificIEs,
             secondaryChannelOffset: secondaryChannelOffset,
-            secondaryChannels: secondaryChannels
+            secondaryChannels: secondaryChannels,
+            nearbyNetworks: nearbyNetworks
         )
     }
 
@@ -132,15 +144,15 @@ class WiFiService: @unchecked Sendable {
 
     /// Runs the expensive scanForNetworks on a background GCD queue,
     /// extracting only Sendable data from CWNetwork objects.
-    private func scanNetworksInBackground(ssid: String) async
+    private func scanNetworksInBackground(ssid: String? = nil) async
         -> [ScannedNetworkData]
     {
         await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 guard let iface = CWWiFiClient.shared().interface(),
-                    let ssidData = ssid.data(using: .utf8),
                     let networks = try? iface.scanForNetworks(
-                        withSSID: ssidData
+                        // Optional param
+                        withSSID: ssid != nil ? ssid?.data(using: .utf8) : nil
                     )
                 else {
                     continuation.resume(returning: [])
@@ -148,9 +160,10 @@ class WiFiService: @unchecked Sendable {
                 }
                 let results = networks.map { network in
                     ScannedNetworkData(
+                        ssid: network.ssid ?? "",
                         bssid: network.bssid ?? "",
                         rssi: network.rssiValue,
-                        noise: network.noiseMeasurement,
+                        channelNumber: network.wlanChannel?.channelNumber ?? 0,
                         informationElementData: network.informationElementData
                     )
                 }
@@ -159,16 +172,30 @@ class WiFiService: @unchecked Sendable {
         }
     }
 
-    /// Builds BSSID display strings with vendor info from pre-scanned data.
-    private func buildBSSIDsWithVendors(
+    /// Build a list of nearby WiFi with other metadata (vendor info, RSSI, Noise, SNR, etc.)
+    private func buildNearbyWiFiWithMetadata(
+        from scannedNetworks: [ScannedNetworkData]
+    ) async -> [String] {
+        var results: [String] = []
+        for data in scannedNetworks
+        where !data.bssid.isEmpty && !data.ssid.isEmpty {
+            let vendor = await fetchVendorName(bssid: data.bssid)
+            results.append(
+                "SSID: \(data.ssid)\nBSSID: \(data.bssid)\nVendor: \(vendor)\nChannel: \(data.channelNumber)\nRSSI: \(data.rssi) dBm\n"
+            )
+        }
+        return results
+    }
+
+    /// Builds BSSID display strings with metadata from pre-scanned data.
+    private func buildBSSIDsWithMetadata(
         from scannedNetworks: [ScannedNetworkData]
     ) async -> [String] {
         var results: [String] = []
         for data in scannedNetworks where !data.bssid.isEmpty {
             let vendor = await fetchVendorName(bssid: data.bssid)
-            let snr = data.rssi - data.noise
             results.append(
-                "\(data.bssid) (\(vendor), RSSI: \(data.rssi) dBm, Noise: \(data.noise) dBm, SNR: \(snr) dB)"
+                "\(data.bssid) (\(vendor), Ch \(data.channelNumber), RSSI: \(data.rssi) dBm)"
             )
         }
         return results

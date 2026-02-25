@@ -52,7 +52,7 @@ struct MainView: View {
 
                         WiFiView(viewModel: wiFiViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
-                        
+
                         IEDataView(viewModel: wiFiViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
 
@@ -67,6 +67,7 @@ struct MainView: View {
                     // Keeping these in a standard VStack ensures they always take 100% of the window width
                     VStack(spacing: 20) {
                         BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
+                        NearbyNetworksView(viewModel: wiFiViewModel)
                         LogView(logViewModel: logViewModel)
                     }
                     .frame(maxWidth: .infinity, alignment: .top)
@@ -107,6 +108,13 @@ struct MainView: View {
 
             Spacer()
 
+            Button("Force Refresh") {
+                Task {
+                    await refreshData()
+                }
+            }
+            .font(.subheadline)
+
             HStack(spacing: kSpacing) {
                 Text("Poll Interval:")
                     .font(.subheadline)
@@ -118,7 +126,7 @@ struct MainView: View {
                         Image(systemName: "minus.circle")
                     }
                     Text("\(pollIntervalSeconds)s")
-                        .font(.system(.subheadline, design: .monospaced))
+                        .font(.custom(kMonoFontName, size: kMonoFontSize))
                         .frame(width: 30)
                     Button {
                         updatePollInterval(by: 1)
@@ -128,7 +136,7 @@ struct MainView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 8)
             .padding(.vertical, 6)
             .background(Color.gray.opacity(0.1))
             .cornerRadius(8)

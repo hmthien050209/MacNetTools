@@ -40,4 +40,6 @@ struct WiFiModel {
     var secondaryChannelOffset: String?
     /// List of computed secondary channels derived from HT/VHT Operation IEs.
     var secondaryChannels: [Int]
+    /// List of nearby networks with metadata
+    var nearbyNetworks: [String]
 }
