@@ -24,6 +24,14 @@ struct MainView: View {
         return formatter
     }()
 
+    let columns = [
+        GridItem(
+            .adaptive(minimum: 500, maximum: .infinity),
+            spacing: 20,
+            alignment: .top
+        )
+    ]
+
     private let pingTargets = ["1.1.1.1", "8.8.8.8"]
 
     var body: some View {
@@ -36,31 +44,28 @@ struct MainView: View {
             Divider()
 
             ScrollView {
-                let columns = [
-                    GridItem(
-                        .adaptive(minimum: 500, maximum: .infinity),
-                        spacing: 20,
-                        alignment: .top
-                    )
-                ]
-
                 VStack(spacing: 20) {
                     // Top Dynamic Grid for wide standard widgets
                     LazyVGrid(columns: columns, spacing: 20) {
                         BasicNetView(viewModel: basicNetViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .id("BasicNetView")
 
                         WiFiView(viewModel: wiFiViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .id("WiFiView")
 
                         IEDataView(viewModel: wiFiViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .id("IEDataView")
 
                         PingView(viewModel: pingViewModel)
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .id("PingView")
 
                         ExternalToolsView()
                             .frame(maxWidth: .infinity, alignment: .top)
+                            .id("ExternalToolsView")
                     }
 
                     // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
