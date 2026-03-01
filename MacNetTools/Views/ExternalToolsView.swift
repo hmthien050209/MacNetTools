@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct ExternalToolsView: View {
+    @Environment(\.openWindow) private var openWindow
     @State private var viewModel = ExternalToolsViewModel()
     @State private var tracerouteTarget = "1.1.1.1"
-    @State private var activeSession: ToolSession?
+    @State private var pingTarget = "1.1.1.1"
 
     var body: some View {
         VStack(alignment: .leading, spacing: kSpacing) {
@@ -23,13 +24,10 @@ struct ExternalToolsView: View {
                         TextField("Target", text: $tracerouteTarget)
                             .textFieldStyle(.roundedBorder)
                         Button("Run") {
-                            let stream = viewModel.startTraceroute(
+                            let sessionId = viewModel.startTraceroute(
                                 target: tracerouteTarget
                             )
-                            activeSession = ToolSession(
-                                name: "Traceroute: \(tracerouteTarget)",
-                                stream: stream
-                            )
+                            openWindow(value: sessionId)
                         }
                         .disabled(
                             !viewModel.tracerouteAvailable
@@ -41,25 +39,36 @@ struct ExternalToolsView: View {
                 }
 
                 GridRow {
+                    Text("Ping")
+                    HStack {
+                        TextField("Target", text: $pingTarget)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Run") {
+                            let sessionId = viewModel.startPing(
+                                target: pingTarget
+                            )
+                            openWindow(value: sessionId)
+                        }
+                        .disabled(
+                            !viewModel.pingAvailable
+                                || pingTarget.trimmingCharacters(
+                                    in: .whitespacesAndNewlines
+                                ).isEmpty
+                        )
+                    }
+                }
+
+                GridRow {
                     Text("Speedtest")
                     Button("Run Speedtest") {
-                        let stream = viewModel.startSpeedtest()
-                        activeSession = ToolSession(
-                            name: "Speedtest",
-                            stream: stream
-                        )
+                        let sessionId = viewModel.startSpeedtest()
+                        openWindow(value: sessionId)
                     }
                     .disabled(!viewModel.speedtestAvailable)
                 }
             }
         }
         .task { await viewModel.checkTools() }
-        .sheet(item: $activeSession) { session in
-            ToolTerminalView(title: session.name, stream: session.stream) {
-                viewModel.stopCurrentTool()
-                activeSession = nil
-            }
-        }
     }
 
     private var toolAvailabilityText: String {

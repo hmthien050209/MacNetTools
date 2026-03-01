@@ -46,40 +46,46 @@ class ExternalToolsService {
         )
 
         let stream = AsyncStream<String> { continuation in
+            // Use readabilityHandler for true non-blocking I/O.
+            // This avoids tying up cooperative pool threads with blocking read calls.
+            pipe.fileHandleForReading.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty {
+                    // EOF reached, clean up.
+                    handle.readabilityHandler = nil
+                } else if let line = String(data: data, encoding: .utf8) {
+                    // Note: This might yield multiple lines at once or partial lines.
+                    // For CLI tools, this is usually acceptable as they are line-buffered.
+                    // We trim trailing whitespace to handle the trailing newline.
+                    let trimmed = line.trimmingCharacters(in: .newlines)
+                    if !trimmed.isEmpty {
+                        // Split by newline in case multiple lines were read at once.
+                        for subLine in trimmed.components(
+                            separatedBy: .newlines
+                        ) {
+                            continuation.yield(subLine)
+                        }
+                    }
+                }
+            }
+
+            task.terminationHandler = { _ in
+                // Ensure the readability handler is removed when the task ends.
+                pipe.fileHandleForReading.readabilityHandler = nil
+
+                let exitCode = task.terminationStatus
+                if exitCode == 0 {
+                    continuation.yield("- Process completed successfully -")
+                } else {
+                    continuation.yield(
+                        "- Process terminated with exit code \(exitCode) -"
+                    )
+                }
+                continuation.finish()
+            }
+
             do {
                 try task.run()
-
-                // Spawn a detached task to handle the blocking file reads
-                // without impacting the caller's thread or the cooperative pool.
-                Task.detached(priority: .background) {
-                    do {
-                        // Stream lines from the process stdout/stderr pipe.
-                        for try await line in pipe.fileHandleForReading.bytes
-                            .lines
-                        {
-                            continuation.yield(line)
-                        }
-
-                        // Wait for process deallocation and exit status.
-                        task.waitUntilExit()
-
-                        let exitCode = task.terminationStatus
-                        if exitCode == 0 {
-                            continuation.yield(
-                                "- Process completed successfully -"
-                            )
-                        } else {
-                            continuation.yield(
-                                "- Process terminated with exit code \(exitCode) -"
-                            )
-                        }
-                    } catch {
-                        continuation.yield(
-                            "Stream Error: \(error.localizedDescription)"
-                        )
-                    }
-                    continuation.finish()
-                }
             } catch {
                 continuation.yield(
                     "Execution Error: \(error.localizedDescription)"
@@ -89,6 +95,7 @@ class ExternalToolsService {
 
             // Cleanup logic when the stream consumer cancels or finishes.
             continuation.onTermination = { _ in
+                pipe.fileHandleForReading.readabilityHandler = nil
                 if task.isRunning { task.terminate() }
             }
         }

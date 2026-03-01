@@ -8,6 +8,12 @@ struct MacNetToolsApp: App {
         WindowGroup {
             MainView()
         }
+
+        WindowGroup(for: String.self) { $sessionId in
+            if let sessionId = sessionId {
+                ToolTerminalView(sessionId: sessionId)
+            }
+        }
     }
 }
 
