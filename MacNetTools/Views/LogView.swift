@@ -1,71 +1,71 @@
 import SwiftUI
 
 struct LogView: View {
-    var logViewModel: LogViewModel
-    @State private var searchText = ""
+  var logViewModel: LogViewModel
+  @State private var searchText = ""
 
-    var body: some View {
-        let filtered = logViewModel.filteredEntries(searchText: searchText)
+  var body: some View {
+    let filtered = logViewModel.filteredEntries(searchText: searchText)
 
-        VStack(alignment: .leading, spacing: kSpacing) {
-            VStack(alignment: .leading, spacing: kSpacing) {
-                HStack {
-                    Text("Activity Log")
-                        .font(.headline)
-                    Spacer()
-                    Button("Clear logs") {
-                        logViewModel.clear()
-                    }
-                    .controlSize(.small)
-                }
-
-                HStack {
-                    TextField("Filter...", text: $searchText)
-                        .textFieldStyle(.roundedBorder)
-                    Spacer()
-                    Button("Clear filter") {
-                        searchText = ""
-                    }
-                    .controlSize(.small)
-                }
-
-                HStack {
-                    Spacer()
-                    Text("(Will exclude filters)")
-                        .font(.caption)
-                    CopyButton(
-                        text: logText,
-                        isDisabled: filtered.isEmpty,
-                        helpText: "Copy full log to clipboard"
-                    )
-                    SaveToDesktopButton(
-                        content: logText,
-                        prefix: "MacNetTools",
-                        isDisabled: filtered.isEmpty,
-                        helpText: "Save full log as a .log file on your Desktop"
-                    )
-                }
-            }
-
-            MonoScrollView(
-                lines: filtered.map(\.message),
-                scrollTrigger: filtered.count
-            )
+    VStack(alignment: .leading, spacing: kSpacing) {
+      VStack(alignment: .leading, spacing: kSpacing) {
+        HStack {
+          Text("Activity Log")
+            .font(.headline)
+          Spacer()
+          Button("Clear logs") {
+            logViewModel.clear()
+          }
+          .controlSize(.small)
         }
-        .frame(
-            minWidth: 400,
-            maxWidth: .infinity,
-            maxHeight: 400,
-            alignment: .topLeading
-        )
-    }
 
-    /// All log entries joined into a single string for export.
-    private var logText: String {
-        logViewModel.entries.map { $0.message }.joined(separator: "\n")
+        HStack {
+          TextField("Filter...", text: $searchText)
+            .textFieldStyle(.roundedBorder)
+          Spacer()
+          Button("Clear filter") {
+            searchText = ""
+          }
+          .controlSize(.small)
+        }
+
+        HStack {
+          Spacer()
+          Text("(Will exclude filters)")
+            .font(.caption)
+          CopyButton(
+            text: logText,
+            isDisabled: filtered.isEmpty,
+            helpText: "Copy full log to clipboard"
+          )
+          SaveToDesktopButton(
+            content: logText,
+            prefix: "MacNetTools",
+            isDisabled: filtered.isEmpty,
+            helpText: "Save full log as a .log file on your Desktop"
+          )
+        }
+      }
+
+      MonoScrollView(
+        lines: filtered.map(\.message),
+        scrollTrigger: filtered.count
+      )
     }
+    .frame(
+      minWidth: 400,
+      maxWidth: .infinity,
+      maxHeight: 400,
+      alignment: .topLeading
+    )
+  }
+
+  /// All log entries joined into a single string for export.
+  private var logText: String {
+    logViewModel.entries.map { $0.message }.joined(separator: "\n")
+  }
 }
 
 #Preview {
-    LogView(logViewModel: LogViewModel())
+  LogView(logViewModel: LogViewModel())
 }

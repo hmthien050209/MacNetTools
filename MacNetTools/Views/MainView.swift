@@ -2,288 +2,288 @@ import CoreWLAN
 import SwiftUI
 
 struct MainView: View {
-    @State private var logViewModel = LogViewModel()
-    @State private var basicNetViewModel = BasicNetViewModel()
-    @State private var wiFiViewModel = WiFiViewModel()
-    @State private var pingViewModel = PingViewModel()
-    @State private var pollIntervalSeconds: Int = 3
-    @State private var pollTask: Task<Void, Never>?
+  @State private var logViewModel = LogViewModel()
+  @State private var basicNetViewModel = BasicNetViewModel()
+  @State private var wiFiViewModel = WiFiViewModel()
+  @State private var pingViewModel = PingViewModel()
+  @State private var pollIntervalSeconds: Int = 3
+  @State private var pollTask: Task<Void, Never>?
 
-    // Last Updated State
-    @State private var lastUpdatedAt: Date? = nil
+  // Last Updated State
+  @State private var lastUpdatedAt: Date? = nil
 
-    private var isoFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.timeZone = .current
+  private var isoFormatter: ISO8601DateFormatter = {
+    let formatter = ISO8601DateFormatter()
+    formatter.timeZone = .current
 
-        formatter.formatOptions = [
-            .withInternetDateTime,
-            .withDashSeparatorInDate,
-            .withColonSeparatorInTime,
-        ]
-        return formatter
-    }()
-
-    let columns = [
-        GridItem(
-            .adaptive(minimum: 500, maximum: .infinity),
-            spacing: 20,
-            alignment: .top
-        )
+    formatter.formatOptions = [
+      .withInternetDateTime,
+      .withDashSeparatorInDate,
+      .withColonSeparatorInTime,
     ]
+    return formatter
+  }()
 
-    private let pingTargets = ["1.1.1.1", "8.8.8.8"]
+  let columns = [
+    GridItem(
+      .adaptive(minimum: 500, maximum: .infinity),
+      spacing: 20,
+      alignment: .top
+    )
+  ]
 
-    var body: some View {
-        VStack(spacing: 0) {
-            // Header Bar
-            headerView
-                .padding()
-                .background(.background)
+  private let pingTargets = ["1.1.1.1", "8.8.8.8"]
 
-            Divider()
+  var body: some View {
+    VStack(spacing: 0) {
+      // Header Bar
+      headerView
+        .padding()
+        .background(.background)
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    // Top Dynamic Grid for wide standard widgets
-                    LazyVGrid(columns: columns, spacing: 20) {
-                        BasicNetView(viewModel: basicNetViewModel)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .id("BasicNetView")
+      Divider()
 
-                        WiFiView(viewModel: wiFiViewModel)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .id("WiFiView")
+      ScrollView {
+        VStack(spacing: 20) {
+          // Top Dynamic Grid for wide standard widgets
+          LazyVGrid(columns: columns, spacing: 20) {
+            BasicNetView(viewModel: basicNetViewModel)
+              .frame(maxWidth: .infinity, alignment: .top)
+              .id("BasicNetView")
 
-                        IEDataView(viewModel: wiFiViewModel)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .id("IEDataView")
+            WiFiView(viewModel: wiFiViewModel)
+              .frame(maxWidth: .infinity, alignment: .top)
+              .id("WiFiView")
 
-                        PingView(viewModel: pingViewModel)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .id("PingView")
+            IEDataView(viewModel: wiFiViewModel)
+              .frame(maxWidth: .infinity, alignment: .top)
+              .id("IEDataView")
 
-                        ExternalToolsView()
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .id("ExternalToolsView")
-                    }
+            PingView(viewModel: pingViewModel)
+              .frame(maxWidth: .infinity, alignment: .top)
+              .id("PingView")
 
-                    // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
-                    // Keeping these in a standard VStack ensures they always take 100% of the window width
-                    VStack(spacing: 20) {
-                        BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
-                        NearbyNetworksView(viewModel: wiFiViewModel)
-                        LogView(logViewModel: logViewModel)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .top)
-                }
-                .padding()
-            }
+            ExternalToolsView()
+              .frame(maxWidth: .infinity, alignment: .top)
+              .id("ExternalToolsView")
+          }
+
+          // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
+          // Keeping these in a standard VStack ensures they always take 100% of the window width
+          VStack(spacing: 20) {
+            BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
+            NearbyNetworksView(viewModel: wiFiViewModel)
+            LogView(logViewModel: logViewModel)
+          }
+          .frame(maxWidth: .infinity, alignment: .top)
         }
-        .task {
-            startPolling()
-        }
-        .onChange(of: pollIntervalSeconds) { _, _ in
-            startPolling()
-        }
-        .onDisappear {
-            pollTask?.cancel()
-        }
+        .padding()
+      }
     }
-
-    private var headerView: some View {
-        HStack(alignment: .lastTextBaseline) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("MacNetTools")
-                    .font(.title2)
-                    .fontWeight(.bold)
-
-                Group {
-                    if let lastUpdate = lastUpdatedAt {
-                        Text(
-                            "Last updated: \(isoFormatter.string(from: lastUpdate))"
-                        )
-                    } else {
-                        Text("Refreshing...")
-                    }
-                }
-                .font(.custom(kMonoFontName, size: kMonoFontSize))
-                .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-
-            Button("Force Refresh") {
-                Task {
-                    await refreshData()
-                }
-            }
-            .font(.subheadline)
-
-            HStack(spacing: kSpacing) {
-                Text("Poll Interval:")
-                    .font(.subheadline)
-
-                HStack(spacing: 8) {
-                    Button {
-                        updatePollInterval(by: -1)
-                    } label: {
-                        Image(systemName: "minus.circle")
-                    }
-                    Text("\(pollIntervalSeconds)s")
-                        .font(.custom(kMonoFontName, size: kMonoFontSize))
-                        .frame(width: 30)
-                    Button {
-                        updatePollInterval(by: 1)
-                    } label: {
-                        Image(systemName: "plus.circle")
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
-            .background(Color.gray.opacity(0.1))
-            .cornerRadius(8)
-        }
+    .task {
+      startPolling()
     }
-
-    @MainActor
-    private func startPolling() {
-        pollTask?.cancel()
-        pollTask = Task {
-            while !Task.isCancelled {
-                await refreshData()
-                try? await Task.sleep(
-                    for: .seconds(Double(pollIntervalSeconds))
-                )
-            }
-        }
+    .onChange(of: pollIntervalSeconds) { _, _ in
+      startPolling()
     }
-
-    @MainActor
-    private func refreshData() async {
-        async let basicUpdate: Void = refreshBasicNet()
-        async let wifiUpdate: Void = refreshWiFi()
-        async let pingUpdate: Void = refreshPings()
-
-        _ = await (basicUpdate, wifiUpdate, pingUpdate)
-
-        lastUpdatedAt = Date()
+    .onDisappear {
+      pollTask?.cancel()
     }
+  }
 
-    @MainActor
-    private func refreshBasicNet() async {
-        let previous = basicNetViewModel.basicNetModel
-        let updated = await basicNetViewModel.updateBasicNet()
+  private var headerView: some View {
+    HStack(alignment: .lastTextBaseline) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("MacNetTools")
+          .font(.title2)
+          .fontWeight(.bold)
 
-        guard let updated else {
-            if previous != nil {
-                logViewModel.append("Network data unavailable")
-            }
-            return
-        }
-
-        logChange(
-            label: "Local IP",
-            old: previous?.localIp,
-            new: updated.localIp
-        )
-        logChange(
-            label: "Subnet Mask",
-            old: previous?.subnetMask,
-            new: updated.subnetMask
-        )
-        logChange(
-            label: "Router",
-            old: previous?.routerIp,
-            new: updated.routerIp
-        )
-        logChange(label: "MTU", old: previous?.mtu, new: updated.mtu)
-        logChange(
-            label: "Public IPv4",
-            old: previous?.publicIpV4,
-            new: updated.publicIpV4
-        )
-        logChange(
-            label: "Public IPv6",
-            old: previous?.publicIpV6,
-            new: updated.publicIpV6
-        )
-    }
-
-    @MainActor
-    private func refreshWiFi() async {
-        let previous = wiFiViewModel.wiFiModel
-        let updated = await wiFiViewModel.updateWiFi()
-
-        guard let updated else {
-            if previous != nil {
-                logViewModel.append("WiFi data unavailable")
-            }
-            return
-        }
-
-        logChange(label: "SSID", old: previous?.ssid, new: updated.ssid)
-        logChange(
-            label: "BSSID",
-            old: previous?.connectedBssid,
-            new: updated.connectedBssid
-        )
-        logChange(
-            label: "Channel",
-            old: previous?.channel?.channelNumber.description,
-            new: updated.channel.map { "\($0.channelNumber)" } ?? kUnknown
-        )
-        logChange(
-            label: "Security",
-            old: previous.map { String(describing: $0.security) },
-            new: String(describing: updated.security)
-        )
-    }
-
-    @MainActor
-    private func refreshPings() async {
-        var targets: [(display: String, host: String)] = pingTargets.map {
-            ($0, $0)
-        }
-        if let router = basicNetViewModel.basicNetModel?.routerIp,
-            router != "0.0.0.0"
-        {
-            targets.append(("Router (\(router))", router))
-        }
-
-        // Run pings in parallel for even faster updates
-        await withTaskGroup(of: Void.self) { group in
-            for target in targets {
-                group.addTask {
-                    let result = await pingViewModel.runPing(
-                        target: target.host
-                    )
-                    await pingViewModel.addPing(
-                        target: target.display,
-                        status: result.status
-                    )
-                }
-            }
-        }
-    }
-
-    @MainActor
-    private func logChange(label: String, old: String?, new: String) {
-        guard old != new else { return }
-        if let old {
-            logViewModel.append(
-                "\(label): \"\(old)\" -> \"\(new)\""
+        Group {
+          if let lastUpdate = lastUpdatedAt {
+            Text(
+              "Last updated: \(isoFormatter.string(from: lastUpdate))"
             )
+          } else {
+            Text("Refreshing...")
+          }
         }
+        .font(.custom(kMonoFontName, size: kMonoFontSize))
+        .foregroundStyle(.secondary)
+      }
+
+      Spacer()
+
+      Button("Force Refresh") {
+        Task {
+          await refreshData()
+        }
+      }
+      .font(.subheadline)
+
+      HStack(spacing: kSpacing) {
+        Text("Poll Interval:")
+          .font(.subheadline)
+
+        HStack(spacing: 8) {
+          Button {
+            updatePollInterval(by: -1)
+          } label: {
+            Image(systemName: "minus.circle")
+          }
+          Text("\(pollIntervalSeconds)s")
+            .font(.custom(kMonoFontName, size: kMonoFontSize))
+            .frame(width: 30)
+          Button {
+            updatePollInterval(by: 1)
+          } label: {
+            Image(systemName: "plus.circle")
+          }
+        }
+        .buttonStyle(.plain)
+      }
+      .padding(.horizontal, 8)
+      .padding(.vertical, 6)
+      .background(Color.gray.opacity(0.1))
+      .cornerRadius(8)
+    }
+  }
+
+  @MainActor
+  private func startPolling() {
+    pollTask?.cancel()
+    pollTask = Task {
+      while !Task.isCancelled {
+        await refreshData()
+        try? await Task.sleep(
+          for: .seconds(Double(pollIntervalSeconds))
+        )
+      }
+    }
+  }
+
+  @MainActor
+  private func refreshData() async {
+    async let basicUpdate: Void = refreshBasicNet()
+    async let wifiUpdate: Void = refreshWiFi()
+    async let pingUpdate: Void = refreshPings()
+
+    _ = await (basicUpdate, wifiUpdate, pingUpdate)
+
+    lastUpdatedAt = Date()
+  }
+
+  @MainActor
+  private func refreshBasicNet() async {
+    let previous = basicNetViewModel.basicNetModel
+    let updated = await basicNetViewModel.updateBasicNet()
+
+    guard let updated else {
+      if previous != nil {
+        logViewModel.append("Network data unavailable")
+      }
+      return
     }
 
-    private func updatePollInterval(by delta: Int) {
-        pollIntervalSeconds = max(1, pollIntervalSeconds + delta)
+    logChange(
+      label: "Local IP",
+      old: previous?.localIp,
+      new: updated.localIp
+    )
+    logChange(
+      label: "Subnet Mask",
+      old: previous?.subnetMask,
+      new: updated.subnetMask
+    )
+    logChange(
+      label: "Router",
+      old: previous?.routerIp,
+      new: updated.routerIp
+    )
+    logChange(label: "MTU", old: previous?.mtu, new: updated.mtu)
+    logChange(
+      label: "Public IPv4",
+      old: previous?.publicIpV4,
+      new: updated.publicIpV4
+    )
+    logChange(
+      label: "Public IPv6",
+      old: previous?.publicIpV6,
+      new: updated.publicIpV6
+    )
+  }
+
+  @MainActor
+  private func refreshWiFi() async {
+    let previous = wiFiViewModel.wiFiModel
+    let updated = await wiFiViewModel.updateWiFi()
+
+    guard let updated else {
+      if previous != nil {
+        logViewModel.append("WiFi data unavailable")
+      }
+      return
     }
+
+    logChange(label: "SSID", old: previous?.ssid, new: updated.ssid)
+    logChange(
+      label: "BSSID",
+      old: previous?.connectedBssid,
+      new: updated.connectedBssid
+    )
+    logChange(
+      label: "Channel",
+      old: previous?.channelDescription,
+      new: updated.channelDescription
+    )
+    logChange(
+      label: "Security",
+      old: previous?.securityDescription,
+      new: updated.securityDescription
+    )
+  }
+
+  @MainActor
+  private func refreshPings() async {
+    var targets: [(display: String, host: String)] = pingTargets.map {
+      ($0, $0)
+    }
+    if let router = basicNetViewModel.basicNetModel?.routerIp,
+      router != "0.0.0.0"
+    {
+      targets.append(("Router (\(router))", router))
+    }
+
+    // Run pings in parallel for even faster updates
+    await withTaskGroup(of: Void.self) { group in
+      for target in targets {
+        group.addTask {
+          let result = await pingViewModel.runPing(
+            target: target.host
+          )
+          await pingViewModel.addPing(
+            target: target.display,
+            status: result.status
+          )
+        }
+      }
+    }
+  }
+
+  @MainActor
+  private func logChange(label: String, old: String?, new: String) {
+    guard old != new else { return }
+    if let old {
+      logViewModel.append(
+        "\(label): \"\(old)\" -> \"\(new)\""
+      )
+    }
+  }
+
+  private func updatePollInterval(by delta: Int) {
+    pollIntervalSeconds = max(1, pollIntervalSeconds + delta)
+  }
 }
 
 #Preview {
-    MainView()
+  MainView()
 }

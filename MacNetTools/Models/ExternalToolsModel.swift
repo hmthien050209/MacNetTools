@@ -1,6 +1,6 @@
 import Foundation
 
 struct ExternalToolsModel {
-    var speedtestAvailable: Bool
-    var tracerouteAvailable: Bool
+  var speedtestAvailable: Bool
+  var tracerouteAvailable: Bool
 }

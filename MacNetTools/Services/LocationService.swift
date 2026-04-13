@@ -5,34 +5,34 @@ import Foundation
 /// required for Network Metadata access.
 @MainActor
 final class LocationPermissionService: NSObject {
-    private let manager = CLLocationManager()
+  private let manager = CLLocationManager()
 
-    // Use a simple continuation or a state property to notify the app
-    private(set) var authorizationStatus: CLAuthorizationStatus
+  // Use a simple continuation or a state property to notify the app
+  private(set) var authorizationStatus: CLAuthorizationStatus
 
-    override init() {
-        self.authorizationStatus = manager.authorizationStatus
-        super.init()
-        manager.delegate = self
-    }
+  override init() {
+    self.authorizationStatus = manager.authorizationStatus
+    super.init()
+    manager.delegate = self
+  }
 
-    func requestPermission() {
-        manager.requestWhenInUseAuthorization()
-    }
+  func requestPermission() {
+    manager.requestWhenInUseAuthorization()
+  }
 
-    var isAuthorizedForNetworkMetadata: Bool {
-        authorizationStatus == .authorized
-            || authorizationStatus == .authorizedAlways
-    }
+  var isAuthorizedForNetworkMetadata: Bool {
+    authorizationStatus == .authorized
+      || authorizationStatus == .authorizedAlways
+  }
 }
 
 extension LocationPermissionService: CLLocationManagerDelegate {
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        self.authorizationStatus = manager.authorizationStatus
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    self.authorizationStatus = manager.authorizationStatus
 
-        // Post a notification or update a central state if status changes
-        if isAuthorizedForNetworkMetadata {
-            print("Ready to read SSID/BSSID")
-        }
+    // Post a notification or update a central state if status changes
+    if isAuthorizedForNetworkMetadata {
+      print("Ready to read SSID/BSSID")
     }
+  }
 }
