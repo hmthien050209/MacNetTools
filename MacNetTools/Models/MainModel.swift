@@ -7,8 +7,6 @@ struct MainModel {
   var wiFi: WiFiModel
   var pings: [PingModel]
   var externalTools: ExternalToolsModel
-  /// True while a data refresh is running in the background.
   var refreshInProgress: Bool
-  /// Current network interface (e.g. en0) for status bar.
   var currentInterface: String
 }

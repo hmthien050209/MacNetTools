@@ -9,7 +9,6 @@ struct MainView: View {
   @State private var pollIntervalSeconds: Int = 3
   @State private var pollTask: Task<Void, Never>?
 
-  // Last Updated State
   @State private var lastUpdatedAt: Date? = nil
 
   private var isoFormatter: ISO8601DateFormatter = {
@@ -36,7 +35,6 @@ struct MainView: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      // Header Bar
       headerView
         .padding()
         .background(.background)
@@ -45,7 +43,6 @@ struct MainView: View {
 
       ScrollView {
         VStack(spacing: 20) {
-          // Top Dynamic Grid for wide standard widgets
           LazyVGrid(columns: columns, spacing: 20) {
             BasicNetView(viewModel: basicNetViewModel)
               .frame(maxWidth: .infinity, alignment: .top)
@@ -68,8 +65,6 @@ struct MainView: View {
               .id("ExternalToolsView")
           }
 
-          // Bottom items (Logs/BSSIDs) that should NEVER share horizontal space
-          // Keeping these in a standard VStack ensures they always take 100% of the window width
           VStack(spacing: 20) {
             BSSIDsWithSameSSIDView(viewModel: wiFiViewModel)
             NearbyNetworksView(viewModel: wiFiViewModel)
@@ -253,7 +248,6 @@ struct MainView: View {
       targets.append(("Router (\(router))", router))
     }
 
-    // Run pings in parallel for even faster updates
     await withTaskGroup(of: Void.self) { group in
       for target in targets {
         group.addTask {

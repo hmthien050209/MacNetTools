@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Saves `content` to a `.log` file on the Desktop with "Saved!" feedback.
 struct SaveToDesktopButton: View {
   let content: String
   let prefix: String

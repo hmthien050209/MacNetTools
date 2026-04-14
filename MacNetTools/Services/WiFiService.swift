@@ -26,14 +26,11 @@ private struct ScannedNetworkData: Sendable {
 class WiFiService: @unchecked Sendable {
   private let vendorCache = VendorCache()
 
-  func getWiFiModel(interfaceName: String? = nil) async -> WiFiModel? {
-    let client = CWWiFiClient.shared()
+  private var lastConnectedSSID: String?
+  private var lastConnectedBSSID: String?
 
-    guard
-      let interface = interfaceName.flatMap({
-        client.interface(withName: $0)
-      }) ?? client.interface()
-    else {
+  func getWiFiModel(interfaceName: String? = nil) async -> WiFiModel? {
+    guard let interface = getWiFiInterface(interfaceName: interfaceName) else {
       return nil
     }
 
@@ -51,46 +48,41 @@ class WiFiService: @unchecked Sendable {
     let ifName = interface.interfaceName
 
     let allScannedNetworks = await scanNetworksInBackground()
-    let scannedNetworksWithSameSSID = allScannedNetworks.filter {
-      $0.ssid == ssid
-    }
+    let scannedNetworksWithSameSSID = allScannedNetworks.filter { $0.ssid == ssid }
 
+    let connectionChanged = lastConnectedSSID != ssid || lastConnectedBSSID != connectedBssid
+    let shouldParseIE = connectionChanged || lastConnectedSSID == nil
+    
     var encryptionInfo: String? = nil
     var bssLoad: BSSLoadInfo? = nil
     var vendorSpecificIEs: [VendorSpecificIE] = []
     var secondaryChannelOffset: String? = nil
     var secondaryChannels: [Int] = []
-
-    if let currentData = scannedNetworksWithSameSSID.first(where: {
-      $0.bssid == connectedBssid
-    }),
+    
+    if shouldParseIE,
+      let currentData = scannedNetworksWithSameSSID.first(where: { $0.bssid == connectedBssid }),
       let ieData = currentData.informationElementData
     {
       let ies = WiFiIEParser.parseInformationElements(ieData)
-
+      
       if let securityInfo = WiFiIEParser.extractCipherInfo(from: ies) {
         let group = securityInfo.group ?? kUnknown
-        let pairwise =
-          securityInfo.pairwise.isEmpty
-          ? "None" : securityInfo.pairwise.joined(separator: ", ")
-        let akms =
-          securityInfo.akms.isEmpty
-          ? "None" : securityInfo.akms.joined(separator: ", ")
-        encryptionInfo =
-          "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
+        let pairwise = securityInfo.pairwise.isEmpty ? "None" : securityInfo.pairwise.joined(separator: ", ")
+        let akms = securityInfo.akms.isEmpty ? "None" : securityInfo.akms.joined(separator: ", ")
+        encryptionInfo = "AKM: \(akms); Pairwise: \(pairwise); Group: \(group)"
       }
-
-      // IEEE 802.11-2024 Clause 9.4.2.26
+      
       bssLoad = WiFiIEParser.extractBSSLoad(from: ies)
       vendorSpecificIEs = WiFiIEParser.extractVendorSpecificIEs(from: ies)
-      secondaryChannelOffset = WiFiIEParser.extractSecondaryChannelOffset(
-        from: ies
-      )
+      secondaryChannelOffset = WiFiIEParser.extractSecondaryChannelOffset(from: ies)
       secondaryChannels = WiFiIEParser.extractSecondaryChannels(
         primaryChannel: primaryChannelNumber,
         ies: ies
       )
     }
+
+    lastConnectedSSID = ssid
+    lastConnectedBSSID = connectedBssid
 
     async let fetchedNearbyNetworks = buildNearbyWiFiWithMetadata(
       from: allScannedNetworks,
@@ -101,12 +93,11 @@ class WiFiService: @unchecked Sendable {
       from: scannedNetworksWithSameSSID,
       connectedBssid: connectedBssid
     )
-
+    
     let (vendor, availableBssidsWithVendors, nearbyNetworks) = await (
-      fetchedVendor, fetchedAvailableBssidsWithVendors,
-      fetchedNearbyNetworks
+      fetchedVendor, fetchedAvailableBssidsWithVendors, fetchedNearbyNetworks
     )
-
+    
     return WiFiModel(
       ssid: ssid,
       connectedBssid: connectedBssid,
@@ -132,7 +123,10 @@ class WiFiService: @unchecked Sendable {
     )
   }
 
-  // MARK: - Helpers
+  private func getWiFiInterface(interfaceName: String? = nil) -> CWInterface? {
+    let client = CWWiFiClient.shared()
+    return interfaceName.flatMap({ client.interface(withName: $0) }) ?? client.interface()
+  }
 
   private func scanNetworksInBackground() async -> [ScannedNetworkData] {
     await withCheckedContinuation { continuation in
@@ -231,10 +225,6 @@ class WiFiService: @unchecked Sendable {
     }
   }
 
-  // MARK: - Vendor lookup
-
-  // OUI lookup with retry-on-rate-limit (429) and staggered polling
-  // Reference: IEEE 802.11-2024, Clause 9.2.4.3.4 (BSSID) and Clause 9.4.1.29 (Organization Identifier)
   func fetchVendorName(bssid: String?, staggerIndex: Int = 0) async -> String {
     guard let bssid = bssid, !bssid.isEmpty else {
       return ""

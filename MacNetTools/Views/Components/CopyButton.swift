@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Copies `text` to the clipboard with "Copied!" feedback.
 struct CopyButton: View {
   let text: String
   var isDisabled: Bool = false

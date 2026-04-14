@@ -56,6 +56,7 @@ struct WiFiNetworkTable: View {
           }
           TableColumn("RSSI") { network in
             Text("\(network.rssi) dBm")
+              .foregroundStyle(SignalHealth.from(rssi: network.rssi).color)
           }
           .width(min: 120, ideal: 140, max: 180)
         }

@@ -102,7 +102,6 @@ enum WiFiIEParser {
   // References: IEEE 802.11-2024
   // Clause 9.4.2.55: HT Operation element (ID 61)
   // Clause 9.4.2.157: VHT Operation element (ID 192)
-  // Table 9-134: Values of the Secondary Channel Offset field
   static func extractSecondaryChannels(
     primaryChannel: Int,
     ies: [(id: UInt8, payload: Data)]

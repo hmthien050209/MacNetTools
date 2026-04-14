@@ -1,16 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Copies `text` to the system clipboard.
 func copyToClipboard(_ text: String) {
   let pasteboard = NSPasteboard.general
   pasteboard.clearContents()
   pasteboard.setString(text, forType: .string)
 }
 
-/// Saves `content` to a `.log` file on the user's Desktop.
-/// The filename is formatted as `<prefix>_<sanitizedTimestamp>.log`.
-/// Special characters in `prefix` are replaced with underscores.
 func saveLogToDesktop(content: String, prefix: String) {
   let formatter = ISO8601DateFormatter()
   formatter.formatOptions = [.withInternetDateTime]
@@ -42,7 +38,6 @@ func saveLogToDesktop(content: String, prefix: String) {
   }
 }
 
-/// Temporarily sets `binding` to `true` with a spring animation, then resets it after `delay` seconds.
 func flashFeedback(_ binding: Binding<Bool>, delay: Double = 2.0) {
   withAnimation(.spring()) { binding.wrappedValue = true }
   DispatchQueue.main.asyncAfter(deadline: .now() + delay) {

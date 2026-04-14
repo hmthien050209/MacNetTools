@@ -1,19 +1,9 @@
 import Foundation
 import SystemConfiguration
 
-/// Retrieves basic network information for the active interface: local IP,
-/// subnet mask, router/gateway, MTU, and public IPv4/IPv6 addresses.
-/// All blocking System Configuration and socket calls are dispatched to a
-/// background GCD queue; it is therefore safe to call from `@unchecked Sendable`
-/// contexts without blocking the cooperative thread pool.
 class NetworkService: @unchecked Sendable {
 
-  /// Compiles a comprehensive network model for the given interface.
-  ///
-  /// - Parameter interfaceName: Optional BSD name (e.g., "en0"). If nil, defaults to primary.
-  /// - Returns: A `BasicNetModel` containing local and public network state.
   func getBasicNetModel(interfaceName: String? = nil) async -> BasicNetModel? {
-    // Resolve the interface name or fall back to the primary system interface.
     let name: String
     if let provided = interfaceName {
       name = provided
@@ -23,8 +13,6 @@ class NetworkService: @unchecked Sendable {
       return nil
     }
 
-    // Bridge blocking SystemConfiguration and C ifaddrs work to GCD
-    // to prevent saturation of the Swift cooperative thread pool.
     let (addrInfo, networkDetails) = await withCheckedContinuation {
       continuation in
       DispatchQueue.global(qos: .userInitiated).async { [self] in
@@ -34,7 +22,6 @@ class NetworkService: @unchecked Sendable {
       }
     }
 
-    // Parallel resolution of public IPv4 and IPv6 addresses.
     async let ipV4 = getPublicIp(apiUrl: kIpifyV4Url)
     async let ipV6 = getPublicIp(apiUrl: kIpifyV6Url)
 
@@ -50,7 +37,6 @@ class NetworkService: @unchecked Sendable {
 
   // MARK: - Private helpers
 
-  /// Queries SCDynamicStore to identify the current primary network interface.
   private func primaryInterfaceName() -> String? {
     guard
       let store = SCDynamicStoreCreate(
@@ -72,7 +58,6 @@ class NetworkService: @unchecked Sendable {
     return nil
   }
 
-  /// Asynchronously fetches the public IP using the specified provider URL.
   private func getPublicIp(apiUrl: String) async -> String? {
     guard let url = URL(string: apiUrl) else { return nil }
 
@@ -85,10 +70,6 @@ class NetworkService: @unchecked Sendable {
     }
   }
 
-  /// Uses the SystemConfiguration framework to extract the Gateway and MTU.
-  ///
-  /// MTU is retrieved via `SCNetworkInterfaceCopyMTU`, while the Gateway/Router
-  /// is sourced from the global IPv4 state in the dynamic store.
   private func getSystemConfigurationInfo(for interfaceName: String) -> (
     router: String?, mtu: String
   ) {
@@ -106,7 +87,6 @@ class NetworkService: @unchecked Sendable {
       return (nil, mtu)
     }
 
-    // Extract Gateway (Router)
     if let dict = SCDynamicStoreCopyValue(
       dynamicStore,
       kSCDynamicStoreGlobalIPv4 as CFString
@@ -116,7 +96,6 @@ class NetworkService: @unchecked Sendable {
       router = gateway
     }
 
-    // Extract MTU for the specific BSD interface name
     guard
       let interfaces = SCNetworkInterfaceCopyAll()
         as? [SCNetworkInterface]
@@ -139,10 +118,6 @@ class NetworkService: @unchecked Sendable {
     return (router, mtu)
   }
 
-  /// Uses the low-level `getifaddrs` C API to retrieve IP and Subnet mask.
-  ///
-  /// This bypasses high-level frameworks to get raw interface configuration
-  /// directly from the network stack. Matches on `AF_INET` for IPv4.
   private func getInterfaceAddressInfo(for interfaceName: String) -> (
     ip: String?, subnet: String?
   ) {
@@ -160,16 +135,13 @@ class NetworkService: @unchecked Sendable {
       let interface = ptr.pointee
       let addr = interface.ifa_addr.pointee
 
-      // Match IPv4 and the requested BSD interface name (e.g., en0)
       guard addr.sa_family == UInt8(AF_INET) else { continue }
       let name = String(cString: interface.ifa_name)
       guard name == interfaceName else { continue }
 
-      // Ensure the interface is operational (IFF_UP)
       let flags = Int32(interface.ifa_flags)
       guard (flags & IFF_UP) != 0 else { continue }
 
-      // Convert sockaddr to numeric hostname string
       var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
       if getnameinfo(
         interface.ifa_addr,
@@ -183,7 +155,6 @@ class NetworkService: @unchecked Sendable {
         address = String(cString: hostname)
       }
 
-      // Convert netmask sockaddr to numeric string
       if let netmask = interface.ifa_netmask {
         var netmaskName = [CChar](repeating: 0, count: Int(NI_MAXHOST))
         if getnameinfo(

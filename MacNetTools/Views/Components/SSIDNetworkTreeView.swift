@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Hierarchical row model for the SSID-grouped network table.
 enum NetworkTableRow: Identifiable {
   case group(SSIDGroup)
   case network(NearbyWiFiNetwork)
@@ -178,11 +177,11 @@ struct SSIDNetworkTreeView: View {
             switch row {
             case .group:
               Text("\(row.rssi) dBm (mean)")
-                .foregroundStyle(rssiColor(row.rssi))
+                .foregroundStyle(SignalHealth.from(rssi: row.rssi).color)
                 .fontWeight(.semibold)
             case .network:
               Text("\(row.rssi) dBm")
-                .foregroundStyle(rssiColor(row.rssi))
+                .foregroundStyle(SignalHealth.from(rssi: row.rssi).color)
             }
           }
           .width(min: 120, ideal: 140, max: 180)
@@ -196,15 +195,4 @@ struct SSIDNetworkTreeView: View {
   }
 }
 
-private func rssiColor(_ rssi: Int) -> Color {
-  switch rssi {
-  case -50...0:
-    return .green
-  case -60 ..< -50:
-    return .yellow
-  case -70 ..< -60:
-    return .orange
-  default:
-    return .red
-  }
-}
+

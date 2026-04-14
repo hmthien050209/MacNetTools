@@ -60,7 +60,6 @@ struct LogView: View {
     )
   }
 
-  /// All log entries joined into a single string for export.
   private var logText: String {
     logViewModel.entries.map { $0.message }.joined(separator: "\n")
   }
